@@ -1,0 +1,34 @@
+# Team identity (local only)
+team.md
+
+# Build output
+target
+
+# Runtime data (H2 database) — root-only so it does not match `data`
+# package directories inside the source tree (e.g.
+# modules/testcontrol-module/impl/.../adapter/data/).
+/data
+
+# Coverage artifacts
+coverage
+
+# Node.js
+node_modules
+
+# Task planning (local only)
+next_task.md
+
+# IDE files
+.idea
+
+# Working dir
+.DS_Store
+.claude
+
+# Python bytecode cache from helper scripts (lnp-report.py etc.)
+__pycache__
+
+# Error files directory
+errors
+
+tickets
