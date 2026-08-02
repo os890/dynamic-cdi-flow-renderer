@@ -1,0 +1,36 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.os890.cdi.uml.dynamic.flow.renderer.examples.events;
+
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
+import org.os890.cdi.uml.dynamic.flow.renderer.examples.order.InventoryService;
+
+/**
+ * The observer-priority keeps the order of the two synchronous observers deterministic, so the
+ * diagram is reproducible.
+ */
+@ApplicationScoped
+public class StockObserver {
+
+    @Inject
+    private InventoryService inventoryService;
+
+    public void onCheckout(@Observes @Priority(100) CheckoutEvent event) {
+        inventoryService.reserve(event.sku(), event.quantity());
+    }
+}

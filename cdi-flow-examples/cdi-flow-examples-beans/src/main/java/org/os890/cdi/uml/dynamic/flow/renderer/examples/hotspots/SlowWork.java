@@ -1,0 +1,36 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.os890.cdi.uml.dynamic.flow.renderer.examples.hotspots;
+
+/**
+ * The one place which actually burns time in these examples, so the numbers in the diagrams are
+ * predictable and the threshold can sit safely below them.
+ */
+final class SlowWork {
+
+    /** comfortably above the 50 ms threshold the hotspot-example configures */
+    static final long SLOW_MILLIS = 120;
+
+    private SlowWork() {
+    }
+
+    static void spendTime(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+}
