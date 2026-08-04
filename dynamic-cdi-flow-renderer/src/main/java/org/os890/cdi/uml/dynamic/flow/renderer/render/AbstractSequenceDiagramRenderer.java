@@ -146,6 +146,16 @@ abstract class AbstractSequenceDiagramRenderer implements SequenceDiagramRendere
         out.append(INDENT.repeat(depth));
     }
 
+    /**
+     * Puts the use-case a flow was recorded under on the diagram, as its title.
+     *
+     * <p>Which is where a reader looks for it: the label is otherwise only in the directory-name and
+     * in the generated index, and a diagram copied out of either says nothing about what it belongs
+     * to. A flow without a label gets no title, so an application which records no use-cases sees
+     * exactly the diagrams it saw before.
+     */
+    protected abstract void appendTitle(StringBuilder out, CallFlow flow);
+
     protected static String formatDuration(long nanos) {
         double millis = nanos / 1_000_000d;
         if (millis < 10) {

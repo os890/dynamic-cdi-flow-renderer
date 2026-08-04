@@ -6,6 +6,7 @@ through a real browser while it records a sequence diagram of each of them.
 ```bash
 ./run.sh                      # build, drive the use-cases, and say where the diagrams are
 ./run.sh --format plantuml    # the same flows as .puml instead
+./run.sh --no-title           # without the use-case as the diagram's title
 open target/flow-diagrams/use-cases.md
 ```
 
@@ -91,6 +92,9 @@ Copied out of `target/flow-diagrams/` as they were written - nothing here is han
 The service validates the customer, normalizes each tag, stores it, asks for a customer-number and fires an event - which is where the audit observer joins the chain. The list before it is the front-end loading the table. 3 requests, one block each.
 
 ```mermaid
+---
+title: "a customer is created with tags"
+---
 sequenceDiagram
     autonumber
     participant Caller as caller
@@ -103,22 +107,22 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.84 ms | thread executor-thread-1
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.80 ms | thread executor-thread-1
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.19 ms]
+                CustomerRepository-->>CustomerService: List [0.20 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.47 ms]
+            CustomerService-->>CustomerResource: List [0.38 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.84 ms]
+        CustomerResource-->>Caller: List [0.80 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 3.41 ms | thread executor-thread-2
+        Note over Caller,AuditLog: CustomerResource.create — 3.68 ms | thread executor-thread-2
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -139,7 +143,7 @@ sequenceDiagram
                 deactivate CustomerRepository
                 CustomerService->>CustomerNumbers: nextFor(Customer)
                 activate CustomerNumbers
-                CustomerNumbers-->>CustomerService: String [0.29 ms]
+                CustomerNumbers-->>CustomerService: String [0.37 ms]
                 deactivate CustomerNumbers
                 CustomerService-)AuditObserver: [event] onCustomerCreated(CustomerCreated)
                 activate AuditObserver
@@ -149,9 +153,9 @@ sequenceDiagram
                     deactivate AuditLog
                 AuditObserver-->>CustomerService: void [0.14 ms]
                 deactivate AuditObserver
-            CustomerService-->>CustomerResource: Customer [0.92 ms]
+            CustomerService-->>CustomerResource: Customer [1.04 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [3.41 ms]
+        CustomerResource-->>Caller: Response [3.68 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
@@ -176,6 +180,9 @@ sequenceDiagram
 The validation refuses it, and the exception travels back out through every frame it passed before the mapper turns it into a 422. 3 requests, one block each.
 
 ```mermaid
+---
+title: "a customer without a name is refused"
+---
 sequenceDiagram
     autonumber
     participant Caller as caller
@@ -185,40 +192,40 @@ sequenceDiagram
     participant CustomerValidation
     participant BusinessRuleMapper
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.06 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread executor-thread-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.02 ms]
+                CustomerRepository-->>CustomerService: List [0.01 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.04 ms]
+            CustomerService-->>CustomerResource: List [0.02 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.06 ms]
+        CustomerResource-->>Caller: List [0.04 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerValidation: CustomerResource.create — 0.08 ms | thread executor-thread-2
+        Note over Caller,CustomerValidation: CustomerResource.create — 0.07 ms | thread executor-thread-2
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
             activate CustomerService
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
-                CustomerValidation--xCustomerService: throws BusinessRuleException [0.04 ms]
+                CustomerValidation--xCustomerService: throws BusinessRuleException [0.03 ms]
                 deactivate CustomerValidation
             CustomerService--xCustomerResource: throws BusinessRuleException [0.05 ms]
             deactivate CustomerService
-        CustomerResource--xCaller: throws BusinessRuleException [0.08 ms]
+        CustomerResource--xCaller: throws BusinessRuleException [0.07 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,BusinessRuleMapper: BusinessRuleMapper.toResponse — 0.03 ms | thread executor-thread-2
+        Note over Caller,BusinessRuleMapper: BusinessRuleMapper.toResponse — 0.04 ms | thread executor-thread-2
         Caller->>BusinessRuleMapper: toResponse(BusinessRuleException)
         activate BusinessRuleMapper
-        BusinessRuleMapper-->>Caller: Response [0.03 ms]
+        BusinessRuleMapper-->>Caller: Response [0.04 ms]
         deactivate BusinessRuleMapper
     end
 ```
@@ -228,6 +235,9 @@ sequenceDiagram
 The list, the customer it creates to have something to edit, the list again, the update, and the list showing the new e-mail. 5 requests, one block each.
 
 ```mermaid
+---
+title: "a customer is edited"
+---
 sequenceDiagram
     autonumber
     participant Caller as caller
@@ -285,22 +295,22 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.06 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.05 ms | thread executor-thread-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.03 ms]
+                CustomerRepository-->>CustomerService: List [0.02 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.04 ms]
+            CustomerService-->>CustomerResource: List [0.03 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.06 ms]
+        CustomerResource-->>Caller: List [0.05 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerValidation: CustomerResource.update — 1.08 ms | thread executor-thread-2
+        Note over Caller,CustomerValidation: CustomerResource.update — 0.96 ms | thread executor-thread-2
         Caller->>CustomerResource: update(long, Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: update(long, Customer)
@@ -311,15 +321,15 @@ sequenceDiagram
                 deactivate CustomerRepository
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
-                CustomerValidation-->>CustomerService: void [0.00 ms]
+                CustomerValidation-->>CustomerService: void [0.01 ms]
                 deactivate CustomerValidation
                 CustomerService->>CustomerRepository: save(Customer)
                 activate CustomerRepository
                 CustomerRepository-->>CustomerService: Customer [0.00 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: Optional [0.83 ms]
+            CustomerService-->>CustomerResource: Optional [0.79 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [1.08 ms]
+        CustomerResource-->>Caller: Response [0.96 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
@@ -344,6 +354,9 @@ sequenceDiagram
 The same shape, ending in a delete - and the list afterwards no longer holds the row. 5 requests, one block each.
 
 ```mermaid
+---
+title: "a customer is deleted"
+---
 sequenceDiagram
     autonumber
     participant Caller as caller
@@ -370,7 +383,7 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 0.09 ms | thread executor-thread-2
+        Note over Caller,AuditLog: CustomerResource.create — 0.10 ms | thread executor-thread-2
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -397,7 +410,7 @@ sequenceDiagram
                 deactivate AuditObserver
             CustomerService-->>CustomerResource: Customer [0.07 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.09 ms]
+        CustomerResource-->>Caller: Response [0.10 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
@@ -410,7 +423,7 @@ sequenceDiagram
                 activate CustomerRepository
                 CustomerRepository-->>CustomerService: List [0.02 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.02 ms]
+            CustomerService-->>CustomerResource: List [0.03 ms]
             deactivate CustomerService
         CustomerResource-->>Caller: List [0.04 ms]
         deactivate CustomerResource
@@ -431,18 +444,18 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.13 ms | thread executor-thread-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.02 ms]
+                CustomerRepository-->>CustomerService: List [0.05 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.03 ms]
+            CustomerService-->>CustomerResource: List [0.11 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.04 ms]
+        CustomerResource-->>Caller: List [0.13 ms]
         deactivate CustomerResource
     end
 ```
@@ -450,6 +463,7 @@ sequenceDiagram
 
 ```bash
 ./run.sh --format plantuml       # the same flows in the other notation, as .puml
+./run.sh --no-title              # leave the use-case off the diagrams
 ./run.sh --grep "deleted"        # anything else is handed to Playwright
 mvn quarkus:dev                  # dev-mode records too, with no configuration at all
 ```

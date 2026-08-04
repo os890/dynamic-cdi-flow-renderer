@@ -59,6 +59,17 @@ public final class MermaidAssertions {
         while (start < lines.length && lines[start].strip().startsWith("%%")) {
             start++;
         }
+        //and a labelled flow is titled through a front-matter block, which is YAML rather than Mermaid
+        if (start < lines.length && "---".equals(lines[start].strip())) {
+            int frontMatterEnd = start + 1;
+            while (frontMatterEnd < lines.length && !"---".equals(lines[frontMatterEnd].strip())) {
+                assertThat(lines[frontMatterEnd].strip()).as("front-matter of the diagram")
+                        .matches("^\\w[\\w-]*:.*");
+                frontMatterEnd++;
+            }
+            assertThat(frontMatterEnd).as("front-matter is closed again").isLessThan(lines.length);
+            start = frontMatterEnd + 1;
+        }
         assertThat(lines[start]).as("first line of the diagram").isEqualTo("sequenceDiagram");
 
         Set<String> declaredParticipants = new HashSet<>();

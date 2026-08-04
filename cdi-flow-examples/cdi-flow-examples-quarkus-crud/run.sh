@@ -16,6 +16,7 @@
 #
 #   ./run.sh                          # Mermaid, the default
 #   ./run.sh --format plantuml        # the same recordings in the other notation
+#   ./run.sh --no-title               # without the use-case as the diagram's title
 #   ./run.sh --grep deleted           # anything else is handed to Playwright
 #
 # There is nothing about recording in here beyond that one notation: the application depends on
@@ -28,15 +29,17 @@ cd "$(dirname "$0")"
 
 usage() {
     cat <<'USAGE'
-usage: ./run.sh [--format mermaid|plantuml] [playwright arguments...]
+usage: ./run.sh [--format mermaid|plantuml] [--no-title] [playwright arguments...]
 
   --format mermaid    record Mermaid diagrams - the default, and what the application configures
   --format plantuml   record the same flows in PlantUML notation instead
+  --no-title          leave the use-case off the diagrams; by default each one is titled with it
   anything else       handed to Playwright, e.g. --grep deleted
 USAGE
 }
 
 format=""
+title="yes"
 playwright_arguments=()
 
 while [ $# -gt 0 ]; do
@@ -51,6 +54,10 @@ while [ $# -gt 0 ]; do
         ;;
     --format=*)
         format="${1#--format=}"
+        shift
+        ;;
+    --no-title)
+        title="no"
         shift
         ;;
     --help | -h)
@@ -82,7 +89,11 @@ plantuml | puml | uml)
     ;;
 esac
 
-echo "recording as ${CDI_FLOW_OUTPUT_FORMAT:-mermaid}"
+if [ "$title" = "no" ]; then
+    export CDI_FLOW_TITLE_DIAGRAMS=false
+fi
+
+echo "recording as ${CDI_FLOW_OUTPUT_FORMAT:-mermaid}, use-case as title: $title"
 
 mvn -q package -DskipTests
 (
