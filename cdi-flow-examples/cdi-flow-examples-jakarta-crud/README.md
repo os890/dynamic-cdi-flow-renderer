@@ -8,6 +8,7 @@ choice, and that what it records does not depend on it.
 ```bash
 ./run.sh                      # build, drive the use-cases, and say where the diagrams are
 ./run.sh --format plantuml    # the same flows as .puml instead
+./run.sh --no-title           # without the use-case as the diagram's title
 open target/flow-diagrams/use-cases.md
 ```
 
@@ -93,6 +94,9 @@ Copied out of `target/flow-diagrams/` as they were written, recorded on Weld. Pu
 The service validates the customer, normalizes each tag, stores it, asks for a customer-number and fires an event - which is where the audit observer joins the chain. The list before it is the front-end loading the table. 3 requests, one block each.
 
 ```mermaid
+---
+title: "a customer is created with tags"
+---
 sequenceDiagram
     autonumber
     participant Caller as caller
@@ -105,22 +109,22 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 5.44 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 5.13 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.22 ms]
+                CustomerRepository-->>CustomerService: List [0.58 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.39 ms]
+            CustomerService-->>CustomerResource: List [0.78 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [5.44 ms]
+        CustomerResource-->>Caller: List [5.13 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 2.77 ms | thread XNIO-1 task-2
+        Note over Caller,AuditLog: CustomerResource.create — 2.82 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -132,16 +136,16 @@ sequenceDiagram
                 loop 3 times
                     CustomerService->>TagNormalizer: normalize(String)
                     activate TagNormalizer
-                    TagNormalizer-->>CustomerService: String [0.03 ms]
+                    TagNormalizer-->>CustomerService: String [0.12 ms]
                     deactivate TagNormalizer
                 end
                 CustomerService->>CustomerRepository: save(Customer)
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: Customer [0.02 ms]
+                CustomerRepository-->>CustomerService: Customer [0.07 ms]
                 deactivate CustomerRepository
                 CustomerService->>CustomerNumbers: nextFor(Customer)
                 activate CustomerNumbers
-                CustomerNumbers-->>CustomerService: String [0.28 ms]
+                CustomerNumbers-->>CustomerService: String [0.47 ms]
                 deactivate CustomerNumbers
                 CustomerService-)AuditObserver: [event] onCustomerCreated(CustomerCreated)
                 activate AuditObserver
@@ -149,11 +153,11 @@ sequenceDiagram
                     activate AuditLog
                     AuditLog-->>AuditObserver: void [0.02 ms]
                     deactivate AuditLog
-                AuditObserver-->>CustomerService: void [0.20 ms]
+                AuditObserver-->>CustomerService: void [0.17 ms]
                 deactivate AuditObserver
-            CustomerService-->>CustomerResource: Customer [2.71 ms]
+            CustomerService-->>CustomerResource: Customer [2.76 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [2.77 ms]
+        CustomerResource-->>Caller: Response [2.82 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
@@ -178,6 +182,9 @@ sequenceDiagram
 The validation refuses it, and the exception travels back out through every frame it passed before the mapper turns it into a 422. 3 requests, one block each.
 
 ```mermaid
+---
+title: "a customer without a name is refused"
+---
 sequenceDiagram
     autonumber
     participant Caller as caller
@@ -187,7 +194,7 @@ sequenceDiagram
     participant CustomerValidation
     participant BusinessRuleMapper
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -202,22 +209,22 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerValidation: CustomerResource.create — 0.14 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerValidation: CustomerResource.create — 0.20 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
             activate CustomerService
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
-                CustomerValidation--xCustomerService: throws BusinessRuleException [0.10 ms]
+                CustomerValidation--xCustomerService: throws BusinessRuleException [0.15 ms]
                 deactivate CustomerValidation
-            CustomerService--xCustomerResource: throws BusinessRuleException [0.12 ms]
+            CustomerService--xCustomerResource: throws BusinessRuleException [0.17 ms]
             deactivate CustomerService
-        CustomerResource--xCaller: throws BusinessRuleException [0.14 ms]
+        CustomerResource--xCaller: throws BusinessRuleException [0.20 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,BusinessRuleMapper: BusinessRuleMapper.toResponse — 0.06 ms | thread XNIO-1 task-2
+        Note over Caller,BusinessRuleMapper: BusinessRuleMapper.toResponse — 0.06 ms | thread XNIO-1 task-3
         Caller->>BusinessRuleMapper: toResponse(Throwable)
         activate BusinessRuleMapper
         BusinessRuleMapper-->>Caller: Response [0.06 ms]
@@ -230,6 +237,9 @@ sequenceDiagram
 The list, the customer it creates to have something to edit, the list again, the update, and the list showing the new e-mail. 5 requests, one block each.
 
 ```mermaid
+---
+title: "a customer is edited"
+---
 sequenceDiagram
     autonumber
     participant Caller as caller
@@ -241,7 +251,7 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -256,7 +266,7 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 0.11 ms | thread XNIO-1 task-2
+        Note over Caller,AuditLog: CustomerResource.create — 0.21 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -267,7 +277,7 @@ sequenceDiagram
                 deactivate CustomerValidation
                 CustomerService->>CustomerRepository: save(Customer)
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: Customer [0.00 ms]
+                CustomerRepository-->>CustomerService: Customer [0.01 ms]
                 deactivate CustomerRepository
                 CustomerService->>CustomerNumbers: nextFor(Customer)
                 activate CustomerNumbers
@@ -281,13 +291,13 @@ sequenceDiagram
                     deactivate AuditLog
                 AuditObserver-->>CustomerService: void [0.02 ms]
                 deactivate AuditObserver
-            CustomerService-->>CustomerResource: Customer [0.09 ms]
+            CustomerService-->>CustomerResource: Customer [0.19 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.11 ms]
+        CustomerResource-->>Caller: Response [0.21 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -302,14 +312,14 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerValidation: CustomerResource.update — 1.00 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerValidation: CustomerResource.update — 1.07 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: update(long, Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: update(long, Customer)
             activate CustomerService
                 CustomerService->>CustomerRepository: find(long)
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: Optional [0.18 ms]
+                CustomerRepository-->>CustomerService: Optional [0.19 ms]
                 deactivate CustomerRepository
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
@@ -319,13 +329,13 @@ sequenceDiagram
                 activate CustomerRepository
                 CustomerRepository-->>CustomerService: Customer [0.00 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: Optional [0.58 ms]
+            CustomerService-->>CustomerResource: Optional [0.62 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [1.00 ms]
+        CustomerResource-->>Caller: Response [1.07 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -346,6 +356,9 @@ sequenceDiagram
 The same shape, ending in a delete - and the list afterwards no longer holds the row. 5 requests, one block each.
 
 ```mermaid
+---
+title: "a customer is deleted"
+---
 sequenceDiagram
     autonumber
     participant Caller as caller
@@ -357,7 +370,7 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -372,7 +385,7 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 0.12 ms | thread XNIO-1 task-2
+        Note over Caller,AuditLog: CustomerResource.create — 0.12 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -395,7 +408,7 @@ sequenceDiagram
                     activate AuditLog
                     AuditLog-->>AuditObserver: void [0.00 ms]
                     deactivate AuditLog
-                AuditObserver-->>CustomerService: void [0.02 ms]
+                AuditObserver-->>CustomerService: void [0.01 ms]
                 deactivate AuditObserver
             CustomerService-->>CustomerResource: Customer [0.10 ms]
             deactivate CustomerService
@@ -403,37 +416,7 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread XNIO-1 task-2
-        Caller->>CustomerResource: list()
-        activate CustomerResource
-            CustomerResource->>CustomerService: list()
-            activate CustomerService
-                CustomerService->>CustomerRepository: findAll()
-                activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.02 ms]
-                deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.03 ms]
-            deactivate CustomerService
-        CustomerResource-->>Caller: List [0.04 ms]
-        deactivate CustomerResource
-    end
-    rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.delete — 0.68 ms | thread XNIO-1 task-2
-        Caller->>CustomerResource: delete(long)
-        activate CustomerResource
-            CustomerResource->>CustomerService: delete(long)
-            activate CustomerService
-                CustomerService->>CustomerRepository: delete(long)
-                activate CustomerRepository
-                CustomerRepository-->>CustomerService: boolean [0.03 ms]
-                deactivate CustomerRepository
-            CustomerService-->>CustomerResource: boolean [0.61 ms]
-            deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.68 ms]
-        deactivate CustomerResource
-    end
-    rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread XNIO-1 task-3
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -444,7 +427,37 @@ sequenceDiagram
                 deactivate CustomerRepository
             CustomerService-->>CustomerResource: List [0.02 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.03 ms]
+        CustomerResource-->>Caller: List [0.04 ms]
+        deactivate CustomerResource
+    end
+    rect rgb(244, 244, 244)
+        Note over Caller,CustomerRepository: CustomerResource.delete — 0.85 ms | thread XNIO-1 task-3
+        Caller->>CustomerResource: delete(long)
+        activate CustomerResource
+            CustomerResource->>CustomerService: delete(long)
+            activate CustomerService
+                CustomerService->>CustomerRepository: delete(long)
+                activate CustomerRepository
+                CustomerRepository-->>CustomerService: boolean [0.03 ms]
+                deactivate CustomerRepository
+            CustomerService-->>CustomerResource: boolean [0.53 ms]
+            deactivate CustomerService
+        CustomerResource-->>Caller: Response [0.85 ms]
+        deactivate CustomerResource
+    end
+    rect rgb(244, 244, 244)
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.07 ms | thread XNIO-1 task-3
+        Caller->>CustomerResource: list()
+        activate CustomerResource
+            CustomerResource->>CustomerService: list()
+            activate CustomerService
+                CustomerService->>CustomerRepository: findAll()
+                activate CustomerRepository
+                CustomerRepository-->>CustomerService: List [0.02 ms]
+                deactivate CustomerRepository
+            CustomerService-->>CustomerResource: List [0.06 ms]
+            deactivate CustomerService
+        CustomerResource-->>Caller: List [0.07 ms]
         deactivate CustomerResource
     end
 ```

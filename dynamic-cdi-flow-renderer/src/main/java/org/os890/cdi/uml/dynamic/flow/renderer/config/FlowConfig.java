@@ -49,6 +49,7 @@ public final class FlowConfig {
     public static final String KEY_LABEL_HEADER = PREFIX + "label-header";
     public static final String KEY_DESCRIPTION_HEADER = PREFIX + "description-header";
     public static final String KEY_FILE_HEADER = PREFIX + "file-header";
+    public static final String KEY_TITLE_DIAGRAMS = PREFIX + "title-diagrams";
 
     public static final DiagramFormat DEFAULT_OUTPUT_FORMAT = DiagramFormat.MERMAID;
     public static final String DEFAULT_LABEL_HEADER = "X-Flow-Label";
@@ -74,6 +75,7 @@ public final class FlowConfig {
     private final String labelHeader;
     private final String descriptionHeader;
     private final String fileHeader;
+    private final boolean titleDiagrams;
 
     private FlowConfig(Builder builder) {
         this.enabled = builder.enabled;
@@ -93,6 +95,7 @@ public final class FlowConfig {
         this.labelHeader = builder.labelHeader;
         this.descriptionHeader = builder.descriptionHeader;
         this.fileHeader = builder.fileHeader;
+        this.titleDiagrams = builder.titleDiagrams;
     }
 
     public static FlowConfig load() {
@@ -119,6 +122,7 @@ public final class FlowConfig {
         builder.labelHeader = stringValue(KEY_LABEL_HEADER, DEFAULT_LABEL_HEADER);
         builder.descriptionHeader = stringValue(KEY_DESCRIPTION_HEADER, DEFAULT_DESCRIPTION_HEADER);
         builder.fileHeader = stringValue(KEY_FILE_HEADER, null);
+        builder.titleDiagrams = booleanValue(KEY_TITLE_DIAGRAMS, true);
         return builder.build();
     }
 
@@ -373,6 +377,14 @@ public final class FlowConfig {
         return fileHeader;
     }
 
+    /**
+     * @return whether a diagram of a labelled flow carries the use-case as its title; an unlabelled
+     * flow has nothing to be titled with and is never titled either way
+     */
+    public boolean isTitleDiagrams() {
+        return titleDiagrams;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -409,6 +421,12 @@ public final class FlowConfig {
         private String labelHeader = DEFAULT_LABEL_HEADER;
         private String descriptionHeader = DEFAULT_DESCRIPTION_HEADER;
         private String fileHeader;
+        private boolean titleDiagrams = true;
+
+        public Builder titleDiagrams(boolean value) {
+            this.titleDiagrams = value;
+            return this;
+        }
 
         public Builder groupByLabel(boolean value) {
             this.groupByLabel = value;

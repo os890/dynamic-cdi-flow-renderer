@@ -81,6 +81,10 @@ final class RecordedChain {
 
     private static boolean isHeaderLine(String trimmed) {
         return trimmed.isEmpty()
+                //the title of a single chain: the combined diagram carries the use-case's own
+                || trimmed.equals("---")
+                || trimmed.startsWith("title:")
+                || trimmed.startsWith("title ")
                 || trimmed.equals("sequenceDiagram")
                 || trimmed.equals("autonumber")
                 || trimmed.equals("@startuml")

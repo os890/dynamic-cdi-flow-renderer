@@ -45,6 +45,8 @@ public final class PlantUmlAssertions {
     private static final Pattern INLINE_NOTE = Pattern.compile("^note over\\s+\\w+\\s+:\\s*(.*)$");
 
     private static final Set<String> DIRECTIVES = Set.of("autonumber", "hide footbox");
+    /** the use-case a labelled flow belongs to */
+    private static final Pattern TITLE = Pattern.compile("^title\\s+.+$");
 
     private PlantUmlAssertions() {
     }
@@ -91,6 +93,9 @@ public final class PlantUmlAssertions {
             }
             if (LOOP_START.matcher(line).matches()) {
                 blocks.push("loop");
+                continue;
+            }
+            if (TITLE.matcher(line).matches()) {
                 continue;
             }
             if (GROUP_START.matcher(line).matches()) {

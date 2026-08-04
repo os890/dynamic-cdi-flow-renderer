@@ -40,6 +40,15 @@ public final class PlantUmlSequenceRenderer extends AbstractSequenceDiagramRende
         super(config);
     }
 
+    /** PlantUML has a title-directive of its own; one line, no quoting needed. */
+    @Override
+    protected void appendTitle(StringBuilder out, CallFlow flow) {
+        if (flow.label() == null || !config.isTitleDiagrams()) {
+            return;
+        }
+        out.append("title ").append(escape(flow.label().name())).append('\n');
+    }
+
     @Override
     protected int baseDepth() {
         return 0;
@@ -48,6 +57,7 @@ public final class PlantUmlSequenceRenderer extends AbstractSequenceDiagramRende
     @Override
     protected void appendPrologue(StringBuilder out, CallFlow flow, ParticipantNamer namer) {
         out.append("@startuml\n");
+        appendTitle(out, flow);
         out.append("autonumber\n");
         out.append("hide footbox\n");
         out.append("participant \"").append(ParticipantNamer.CALLER_DISPLAY_NAME)

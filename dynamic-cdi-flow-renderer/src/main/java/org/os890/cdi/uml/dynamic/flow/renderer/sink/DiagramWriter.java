@@ -89,10 +89,26 @@ public final class DiagramWriter {
             return diagram;
         }
         String commentPrefix = config.outputFormat() == DiagramFormat.PLANTUML ? "' " : "%% ";
-        StringBuilder result = new StringBuilder();
+        StringBuilder comment = new StringBuilder();
         for (String line : header.split("\\R")) {
-            result.append(commentPrefix).append(line.strip()).append('\n');
+            comment.append(commentPrefix).append(line.strip()).append('\n');
         }
-        return result.append(diagram).toString();
+        int insertAt = afterFrontMatter(diagram);
+        return diagram.substring(0, insertAt) + comment + diagram.substring(insertAt);
+    }
+
+    /**
+     * Where the header may go: after a front-matter block, and at the very top otherwise.
+     *
+     * <p>Mermaid takes the title of a diagram from front-matter, and only recognizes it when the
+     * document begins with it - a comment in front turns the whole diagram into a parse-error. The
+     * header therefore follows the front-matter rather than preceding it.
+     */
+    private static int afterFrontMatter(String diagram) {
+        if (!diagram.startsWith("---\n")) {
+            return 0;
+        }
+        int closing = diagram.indexOf("\n---\n", "---".length());
+        return closing < 0 ? 0 : closing + "\n---\n".length();
     }
 }
