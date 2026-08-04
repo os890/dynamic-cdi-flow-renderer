@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        The root parent, like the Quarkus example: the modules under cdi-flow-examples inherit Weld
+        and OpenWebBeans as *test*-dependencies, and this application needs a container at runtime.
+    -->
+    <parent>
+        <groupId>org.os890.cdi.uml</groupId>
+        <artifactId>cdi-flow-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>cdi-flow-examples-jakarta-crud</artifactId>
+    <name>cdi-flow (examples) - jakarta crud</name>
+    <description>
+        The same CRUD application as the Quarkus example - same beans, same Angular front-end, same
+        Playwright suite - on a plain Jakarta stack: Weld SE with RESTEasy on Undertow. It records
+        the same use-cases through the portable extension, which is the point of having both.
+    </description>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <version.resteasy>7.0.0.Final</version.resteasy>
+        <version.jackson>2.22.0</version.jackson>
+        <version.plugin.exec>3.5.1</version.plugin.exec>
+        <version.plugin.dependency>3.8.1</version.plugin.dependency>
+    </properties>
+
+    <dependencies>
+        <!-- the addon: the portable extension, plus the filter which reads the use-case header -->
+        <dependency>
+            <groupId>org.os890.cdi.uml</groupId>
+            <artifactId>dynamic-cdi-flow-renderer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.os890.cdi.uml</groupId>
+            <artifactId>cdi-flow-jaxrs</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.enterprise</groupId>
+            <artifactId>jakarta.enterprise.cdi-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.weld.se</groupId>
+            <artifactId>weld-se-core</artifactId>
+        </dependency>
+
+        <!-- a real MicroProfile-Config implementation, so META-INF/microprofile-config.properties is read -->
+        <dependency>
+            <groupId>org.eclipse.microprofile.config</groupId>
+            <artifactId>microprofile-config-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.smallrye.config</groupId>
+            <artifactId>smallrye-config</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jboss.resteasy</groupId>
+            <artifactId>resteasy-core</artifactId>
+            <version>${version.resteasy}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.resteasy</groupId>
+            <artifactId>resteasy-undertow</artifactId>
+            <version>${version.resteasy}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${version.jackson}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>cdi-flow-examples-jakarta-crud</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${version.plugin.exec}</version>
+                <executions>
+                    <!--
+                        Quarkus has Quinoa for this; a plain Jakarta application has nothing of the
+                        kind, so the front-end is built here - the same two commands Quinoa runs.
+                    -->
+                    <execution>
+                        <id>webui-install</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>${project.basedir}/src/main/webui</workingDirectory>
+                            <executable>pnpm</executable>
+                            <arguments>
+                                <argument>install</argument>
+                                <argument>--frozen-lockfile</argument>
+                                <argument>--ignore-scripts</argument>
+                                <argument>--offline</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>webui-build</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>${project.basedir}/src/main/webui</workingDirectory>
+                            <executable>pnpm</executable>
+                            <arguments>
+                                <argument>run</argument>
+                                <argument>build</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- the bundle the application serves, next to the jar rather than inside it -->
+                        <id>copy-webui</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/webui</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/webui/dist/cdi-flow-crud/browser</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>${version.plugin.dependency}</version>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.os890.cdi.uml.examples.jakartacrud.CrudApplication</mainClass>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

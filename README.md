@@ -153,6 +153,8 @@ sequenceDiagram
 | `cdi-flow-quarkus` | the Quarkus extension - one dependency, and an application records the use-cases driven through it |
 | `cdi-flow-examples` | aggregator of the example-applications |
 | `cdi-flow-examples-beans` | the example CDI beans and the container-bootstrapping test-support every example reuses. A shared library, not an example - it carries no cdi-flow configuration of its own |
+| `cdi-flow-examples-quarkus-crud` | the drop-in on Quarkus: a CRUD application whose use-cases are recorded while a browser drives them |
+| `cdi-flow-examples-jakarta-crud` | the very same application on Weld SE with RESTEasy, for comparison |
 
 ## Recording use-cases, not just calls
 
@@ -183,9 +185,21 @@ four times. `cdi-flow.combined-exclude-pattern` keeps a named entry-point out of
 without dropping it from the recording.
 
 One application serves a whole suite this way: no restart per use-case, and nothing to configure per
-test. [`cdi-flow-examples-quarkus-crud`](cdi-flow-examples/cdi-flow-examples-quarkus-crud) shows it
-end to end - a Quarkus and Angular CRUD application, four use-cases through a real browser, one
-`./run.sh`.
+test.
+
+**The same demo exists twice**, so that "the same way on either container" is a claim you can check
+rather than take: a CRUD application - same beans, same Angular front-end, same four Playwright
+specs, one `./run.sh` each - on Quarkus and on Weld.
+
+| Example | Stack | Its cdi-flow integration |
+|---|---|---|
+| [`cdi-flow-examples-quarkus-crud`](cdi-flow-examples/cdi-flow-examples-quarkus-crud) | Quarkus, Quinoa | one dependency, two configuration lines, nothing in the sources |
+| [`cdi-flow-examples-jakarta-crud`](cdi-flow-examples/cdi-flow-examples-jakarta-crud) | Weld SE, RESTEasy on Undertow | two dependencies, two configuration lines, and `new FlowLabelFilter()` among the JAX-RS providers |
+
+Driven through both and with the timings normalized away, the combined diagrams are identical for
+three of the four use-cases, line for line. The fourth differs in one line - RESTEasy calls an
+exception-mapper through the raw `ExceptionMapper#toResponse(Throwable)`, Quarkus REST calls the
+typed method - which is the recording being right about two containers that genuinely differ.
 
 ### Dropping it into an application
 
