@@ -41,7 +41,15 @@
 
     <modules>
         <module>dynamic-cdi-flow-renderer</module>
+        <module>cdi-flow-lite</module>
+        <module>cdi-flow-jaxrs</module>
+        <module>cdi-flow-quarkus</module>
         <module>cdi-flow-examples</module>
+        <!--
+            A module of the root rather than of cdi-flow-examples: the examples there inherit Weld
+            and OpenWebBeans as test-dependencies, and this one brings its own container.
+        -->
+        <module>cdi-flow-examples/cdi-flow-examples-quarkus-crud</module>
     </modules>
 
     <properties>
@@ -50,6 +58,9 @@
         <maven.compiler.release>17</maven.compiler.release>
 
         <version.cdi.api>4.1.0</version.cdi.api>
+        <version.jakarta.rest.api>4.0.0</version.jakarta.rest.api>
+        <version.jakarta.annotation.api>3.0.0</version.jakarta.annotation.api>
+        <version.quarkus>3.37.4</version.quarkus>
         <version.microprofile.config.api>3.1.1</version.microprofile.config.api>
         <version.smallrye.config>3.16.0</version.smallrye.config>
 
@@ -78,6 +89,38 @@
                 <version>${project.version}</version>
                 <type>test-jar</type>
                 <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.os890.cdi.uml</groupId>
+                <artifactId>cdi-flow-lite</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.os890.cdi.uml</groupId>
+                <artifactId>cdi-flow-jaxrs</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.os890.cdi.uml</groupId>
+                <artifactId>cdi-flow-quarkus</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.os890.cdi.uml</groupId>
+                <artifactId>cdi-flow-quarkus-deployment</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.ws.rs</groupId>
+                <artifactId>jakarta.ws.rs-api</artifactId>
+                <version>${version.jakarta.rest.api}</version>
+            </dependency>
+            <dependency>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId>
+                <version>${version.jakarta.annotation.api}</version>
             </dependency>
 
             <!-- the only two APIs the addon is implemented against -->
@@ -189,6 +232,12 @@
                         <exclude>.git/**</exclude>
                         <exclude>.idea/**</exclude>
                         <exclude>.claude/**</exclude>
+                        <!-- machine written, and no comment syntax to put a header in -->
+                        <exclude>**/pnpm-lock.yaml</exclude>
+                        <!-- a list of class-names Quarkus reads; no comment syntax -->
+                        <exclude>**/quarkus-build-steps.list</exclude>
+                        <exclude>**/node_modules/**</exclude>
+                        <exclude>**/dist/**</exclude>
                     </excludes>
                 </configuration>
             </plugin>

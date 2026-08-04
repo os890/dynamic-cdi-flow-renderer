@@ -16,6 +16,7 @@ package org.os890.cdi.uml.dynamic.flow.renderer.runtime;
 
 import org.os890.cdi.uml.dynamic.flow.renderer.api.CallFlow;
 import org.os890.cdi.uml.dynamic.flow.renderer.api.CallNode;
+import org.os890.cdi.uml.dynamic.flow.renderer.api.FlowLabel;
 import org.os890.cdi.uml.dynamic.flow.renderer.render.HotspotDetector;
 import org.os890.cdi.uml.dynamic.flow.renderer.render.ProxyFrameCollapser;
 
@@ -34,6 +35,7 @@ final class FlowContext {
 
     private final Deque<CallNode> stack = new ArrayDeque<>();
     private CallNode root;
+    private FlowLabel label;
     private boolean suspended;
 
     private FlowContext() {
@@ -60,6 +62,8 @@ final class FlowContext {
         CallNode parent = stack.peek();
         if (parent == null) {
             root = node;
+            //read when the flow starts: a flow which outlives the label keeps the one it began with
+            label = FlowLabel.current();
         } else {
             parent.addChild(node);
         }
@@ -82,7 +86,9 @@ final class FlowContext {
      */
     void publish(FlowRuntime runtime) {
         CallNode completedRoot = root;
+        FlowLabel completedLabel = label;
         root = null;
+        label = null;
         if (completedRoot == null) {
             clear();
             return;
@@ -95,7 +101,8 @@ final class FlowContext {
                     : completedRoot;
             //after collapsing - a collapsed proxy-frame must not be reported as the hotspot
             HotspotDetector.markHotspots(normalizedRoot, runtime.config().hotspotThresholdMillis());
-            runtime.publish(new CallFlow(normalizedRoot, Thread.currentThread().getName(), runtime.config()));
+            runtime.publish(new CallFlow(normalizedRoot, Thread.currentThread().getName(),
+                    runtime.config(), completedLabel));
         } finally {
             suspended = false;
             clear();
