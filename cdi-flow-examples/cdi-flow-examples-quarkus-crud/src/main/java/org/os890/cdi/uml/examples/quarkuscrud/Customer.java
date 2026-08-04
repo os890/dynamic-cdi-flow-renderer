@@ -16,14 +16,15 @@ package org.os890.cdi.uml.examples.quarkuscrud;
 
 import java.util.List;
 
-/** A customer as the API hands it out and takes it in. A record, so never a bean and never recorded. */
+/**
+ * A customer as the API hands it out and takes it in.
+ *
+ * <p>A record, so never a bean and never recorded - and deliberately without helper-methods: to a
+ * JSON binding, a method on a record looks like one more property to write out.
+ */
 public record Customer(Long id, String name, String email, List<String> tags) {
 
     public Customer withId(Long assignedId) {
         return new Customer(assignedId, name, email, tags);
-    }
-
-    public List<String> tagsOrEmpty() {
-        return tags == null ? List.of() : tags;
     }
 }

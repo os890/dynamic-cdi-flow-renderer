@@ -1,9 +1,13 @@
-# The same demo on a plain Jakarta stack
+# The same demo on a Jakarta EE server
 
 Same beans, same Angular front-end, same Playwright suite as
-[the Quarkus example](../cdi-flow-examples-quarkus-crud) — on **Weld SE with RESTEasy on Undertow**
-instead of Quarkus. It exists to show that the addon is used the same way either side of that
-choice, and that what it records does not depend on it.
+[the Quarkus example](../cdi-flow-examples-quarkus-crud) — deployed to a **Jakarta EE server**: TomEE,
+which is Tomcat with OpenWebBeans for CDI, CXF for Jakarta REST and Johnzon for JSON. It runs embedded,
+started from a `main` method, so the example needs no installation while still being the deployment it
+looks like.
+
+It exists to show that the addon is used the same way either side of that choice, and that what it
+records does not depend on it.
 
 ```bash
 ./run.sh                      # build, drive the use-cases, and say where the diagrams are
@@ -27,20 +31,25 @@ open target/flow-diagrams/use-cases.md
 </dependency>
 ```
 
-**Two lines of configuration**, in
-[`META-INF/microprofile-config.properties`](src/main/resources/META-INF/microprofile-config.properties)
-— and neither of them switches recording on, because a portable container runs the extension in the
-jar and it records unless told otherwise:
+**Three defaults**, set in
+[`CrudApplication`](src/main/java/org/os890/cdi/uml/examples/jakartacrud/CrudApplication.java) before
+the server starts — where the diagrams go, which beans to record, and the licence header every
+generated file carries:
 
-```properties
-cdi-flow.output-directory=target/flow-diagrams
-cdi-flow.file-header=Licensed under the Apache License, Version 2.0
+```java
+setUnlessConfigured("cdi-flow.output-directory", "target/flow-diagrams");
+setUnlessConfigured("cdi-flow.include-pattern", "org\\.os890\\.cdi\\.uml\\.examples\\..*");
+setUnlessConfigured("cdi-flow.file-header", "Licensed under the Apache License, Version 2.0");
 ```
 
-**One line in the sources**: `new FlowLabelFilter()` among the JAX-RS singletons in
-[`CrudRestApplication`](src/main/java/org/os890/cdi/uml/examples/jakartacrud/CrudRestApplication.java).
-The Quarkus extension registers that filter by itself; a hand-wired JAX-RS application has to name
-its providers, so here it is named.
+System properties rather than `META-INF/microprofile-config.properties`, because this server ships no
+MicroProfile Config implementation — the addon then reads system properties and environment variables,
+which is exactly what it falls back to. They are set only when nothing else says otherwise, so
+`--format` and `--no-title` keep working through the environment.
+
+**Nothing else.** No extension class, no startup hook, no interceptor binding in the sources, and —
+unlike a hand-wired REST layer — nothing to register: the server finds the resources, the exception
+mapper and cdi-flow's request filter by itself, and because they are CDI beans they are recorded.
 
 The test-suite side is identical to the Quarkus example — the same nine-line fixture setting
 `X-Flow-Label`, and the same four specs.
@@ -49,45 +58,43 @@ The test-suite side is identical to the Quarkus example — the same nine-line f
 
 | Difference | Why |
 |---|---|
-| `@ApplicationScoped` on `CustomerResource` and `BusinessRuleMapper` | `@Path` and `@Provider` are bean-defining annotations in ArC and are not in a portable container. Only a bean is intercepted, so only a bean is recorded — this is the one thing to remember when moving the demo across |
-| `@Path("/customers")` instead of `@Path("/api/customers")` | the JAX-RS application is deployed under `/api` by `CrudApplication`; the URLs the front-end calls are the same |
-| `CrudApplication` and `CrudRestApplication` exist at all | Quarkus arranges the container, the REST layer and the front-end; here they are wired by hand, which is what a plain Jakarta application does |
-| the front-end is built by `exec-maven-plugin` | Quarkus has Quinoa for that; plain Jakarta has nothing of the kind, so the build runs the same two pnpm commands itself |
-| `CustomerResource` and the mapper are taken **from the container** | `container.select(CustomerResource.class).get()` yields the intercepted bean. A resource RESTEasy instantiates itself is not a bean, and would be recorded nowhere — the one trap in a hand-wired REST layer |
+| `cdi-flow.include-pattern` | a server has beans of its own — MyFaces, the CDI implementation, the REST layer — and recording those says nothing about the application. Without the pattern this run records 23 bean classes instead of 9. The Quarkus extension knows which beans belong to the application archive and needs no pattern; a full server does |
+| `@ApplicationScoped` on `CustomerResource` and `BusinessRuleMapper` | `@Path` and `@Provider` are bean-defining annotations in ArC and are not in a portable container. With `bean-discovery-mode="annotated"` a class needs one, and only a bean is intercepted — so only a bean is recorded |
+| `@Path("/customers")` plus an `@ApplicationPath("/api")` application | the base path belongs to the deployment rather than to the resource; the URLs the front-end calls are the same |
+| `CrudApplication` exists at all | Quarkus arranges the container, the REST layer and the front-end; here a server is started and this application deployed into it, which is what a Jakarta EE application does |
+| the front-end is built by `exec-maven-plugin` | Quarkus has Quinoa for that; a Jakarta build has nothing of the kind, so it runs the same two pnpm commands itself |
+| OpenWebBeans pinned to the server's version | the root pom manages OpenWebBeans for the examples which bootstrap it themselves, and mixing that version into TomEE's own gets as far as a `NoSuchMethodError` while deploying |
 
-Nothing in that list is about cdi-flow. The recorder is attached by the portable extension in the
-jar, and arms itself; there is no extension class, no startup hook and no interceptor binding
-anywhere in this application.
+Only the first of those is about cdi-flow, and it is the interesting one: what a build-time extension
+works out for you, a portable extension has to be told.
 
 ## What the two containers record
 
-Driving the same four use-cases through both and normalizing the timings and thread-names away, the
-combined diagrams come out **identical for three of the four**, line for line:
+Driving the same four use-cases through both and normalizing the timings and thread names away, the
+combined diagrams come out **identical for all four**, line for line:
 
 ```
 a-customer-is-created-with-tags:      IDENTICAL (3 requests)
+a-customer-without-a-name-is-refused: IDENTICAL (3 requests)
 a-customer-is-edited:                 IDENTICAL (5 requests)
 a-customer-is-deleted:                IDENTICAL (5 requests)
-a-customer-without-a-name-is-refused: one line differs
 ```
 
-The one line:
+Two very different runtimes — one resolving its beans while it builds the application, one deploying a
+web application into a servlet container — and the recording says the same thing about both, down to
+the line. The only trace of the difference is in the thread names: `executor-thread-2` on Quarkus,
+`http-nio-8092-exec-4` here.
 
-```diff
-- Caller->>BusinessRuleMapper: toResponse(BusinessRuleException)   # Quarkus REST
-+ Caller->>BusinessRuleMapper: toResponse(Throwable)               # RESTEasy
-```
-
-RESTEasy calls the mapper through the raw `ExceptionMapper#toResponse(Throwable)` bridge method,
-Quarkus REST calls the typed one. The recording is right in both cases — it says what actually
-happened, which is the whole point of recording rather than drawing.
-
-Everything else matches: the same nesting, the same `loop 3 times` over the tags, the same event
-arrow into the audit observer, and the same exception travelling out through three frames.
+That includes the exception path, which is where they used to differ. An earlier version of this
+example ran on RESTEasy, which calls an exception mapper through the raw
+`ExceptionMapper#toResponse(Throwable)` bridge method — so the diagram said `toResponse(Throwable)`
+there and `toResponse(BusinessRuleException)` on Quarkus. CXF calls the typed method and the difference
+disappeared. The recording was right both times: it says what actually happened, which is the point of
+recording rather than drawing.
 
 ## The recorded diagrams
 
-Copied out of `target/flow-diagrams/` as they were written, recorded on Weld. Put them next to [the Quarkus ones](../cdi-flow-examples-quarkus-crud/README.md#the-recorded-diagrams): three of the four are identical line for line, and the fourth differs in the one line about `toResponse` described above.
+Copied out of `target/flow-diagrams/` as they were written, recorded on TomEE. Put them next to [the Quarkus ones](../cdi-flow-examples-quarkus-crud/README.md#the-recorded-diagrams): all four are identical line for line, thread names aside.
 
 ### a customer is created with tags
 
@@ -109,70 +116,70 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 5.13 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 1.94 ms | thread http-nio-8092-exec-9
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.58 ms]
+                CustomerRepository-->>CustomerService: List [0.12 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.78 ms]
+            CustomerService-->>CustomerResource: List [0.30 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [5.13 ms]
+        CustomerResource-->>Caller: List [1.94 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 2.82 ms | thread XNIO-1 task-2
+        Note over Caller,AuditLog: CustomerResource.create — 1.84 ms | thread http-nio-8092-exec-10
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
             activate CustomerService
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
-                CustomerValidation-->>CustomerService: void [0.03 ms]
+                CustomerValidation-->>CustomerService: void [0.02 ms]
                 deactivate CustomerValidation
                 loop 3 times
                     CustomerService->>TagNormalizer: normalize(String)
                     activate TagNormalizer
-                    TagNormalizer-->>CustomerService: String [0.12 ms]
+                    TagNormalizer-->>CustomerService: String [0.01 ms]
                     deactivate TagNormalizer
                 end
                 CustomerService->>CustomerRepository: save(Customer)
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: Customer [0.07 ms]
+                CustomerRepository-->>CustomerService: Customer [0.02 ms]
                 deactivate CustomerRepository
                 CustomerService->>CustomerNumbers: nextFor(Customer)
                 activate CustomerNumbers
-                CustomerNumbers-->>CustomerService: String [0.47 ms]
+                CustomerNumbers-->>CustomerService: String [0.05 ms]
                 deactivate CustomerNumbers
                 CustomerService-)AuditObserver: [event] onCustomerCreated(CustomerCreated)
                 activate AuditObserver
                     AuditObserver->>AuditLog: record(String)
                     activate AuditLog
-                    AuditLog-->>AuditObserver: void [0.02 ms]
+                    AuditLog-->>AuditObserver: void [0.01 ms]
                     deactivate AuditLog
-                AuditObserver-->>CustomerService: void [0.17 ms]
+                AuditObserver-->>CustomerService: void [0.18 ms]
                 deactivate AuditObserver
-            CustomerService-->>CustomerResource: Customer [2.76 ms]
+            CustomerService-->>CustomerResource: Customer [1.52 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [2.82 ms]
+        CustomerResource-->>Caller: Response [1.84 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.02 ms | thread http-nio-8092-exec-1
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.01 ms]
+                CustomerRepository-->>CustomerService: List [0.00 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.02 ms]
+            CustomerService-->>CustomerResource: List [0.01 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.03 ms]
+        CustomerResource-->>Caller: List [0.02 ms]
         deactivate CustomerResource
     end
 ```
@@ -194,7 +201,7 @@ sequenceDiagram
     participant CustomerValidation
     participant BusinessRuleMapper
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.13 ms | thread http-nio-8092-exec-8
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -203,31 +210,31 @@ sequenceDiagram
                 activate CustomerRepository
                 CustomerRepository-->>CustomerService: List [0.01 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.02 ms]
+            CustomerService-->>CustomerResource: List [0.06 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.03 ms]
+        CustomerResource-->>Caller: List [0.13 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerValidation: CustomerResource.create — 0.20 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerValidation: CustomerResource.create — 0.31 ms | thread http-nio-8092-exec-7
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
             activate CustomerService
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
-                CustomerValidation--xCustomerService: throws BusinessRuleException [0.15 ms]
+                CustomerValidation--xCustomerService: throws BusinessRuleException [0.27 ms]
                 deactivate CustomerValidation
-            CustomerService--xCustomerResource: throws BusinessRuleException [0.17 ms]
+            CustomerService--xCustomerResource: throws BusinessRuleException [0.29 ms]
             deactivate CustomerService
-        CustomerResource--xCaller: throws BusinessRuleException [0.20 ms]
+        CustomerResource--xCaller: throws BusinessRuleException [0.31 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,BusinessRuleMapper: BusinessRuleMapper.toResponse — 0.06 ms | thread XNIO-1 task-3
-        Caller->>BusinessRuleMapper: toResponse(Throwable)
+        Note over Caller,BusinessRuleMapper: BusinessRuleMapper.toResponse — 0.05 ms | thread http-nio-8092-exec-7
+        Caller->>BusinessRuleMapper: toResponse(BusinessRuleException)
         activate BusinessRuleMapper
-        BusinessRuleMapper-->>Caller: Response [0.06 ms]
+        BusinessRuleMapper-->>Caller: Response [0.05 ms]
         deactivate BusinessRuleMapper
     end
 ```
@@ -251,22 +258,22 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread http-nio-8092-exec-4
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.01 ms]
+                CustomerRepository-->>CustomerService: List [0.00 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.02 ms]
+            CustomerService-->>CustomerResource: List [0.01 ms]
             deactivate CustomerService
         CustomerResource-->>Caller: List [0.03 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 0.21 ms | thread XNIO-1 task-3
+        Note over Caller,AuditLog: CustomerResource.create — 0.10 ms | thread http-nio-8092-exec-6
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -277,7 +284,7 @@ sequenceDiagram
                 deactivate CustomerValidation
                 CustomerService->>CustomerRepository: save(Customer)
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: Customer [0.01 ms]
+                CustomerRepository-->>CustomerService: Customer [0.00 ms]
                 deactivate CustomerRepository
                 CustomerService->>CustomerNumbers: nextFor(Customer)
                 activate CustomerNumbers
@@ -289,15 +296,15 @@ sequenceDiagram
                     activate AuditLog
                     AuditLog-->>AuditObserver: void [0.00 ms]
                     deactivate AuditLog
-                AuditObserver-->>CustomerService: void [0.02 ms]
+                AuditObserver-->>CustomerService: void [0.01 ms]
                 deactivate AuditObserver
-            CustomerService-->>CustomerResource: Customer [0.19 ms]
+            CustomerService-->>CustomerResource: Customer [0.08 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.21 ms]
+        CustomerResource-->>Caller: Response [0.10 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread http-nio-8092-exec-5
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -306,20 +313,20 @@ sequenceDiagram
                 activate CustomerRepository
                 CustomerRepository-->>CustomerService: List [0.02 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.03 ms]
+            CustomerService-->>CustomerResource: List [0.02 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.04 ms]
+        CustomerResource-->>Caller: List [0.03 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerValidation: CustomerResource.update — 1.07 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerValidation: CustomerResource.update — 1.13 ms | thread http-nio-8092-exec-8
         Caller->>CustomerResource: update(long, Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: update(long, Customer)
             activate CustomerService
                 CustomerService->>CustomerRepository: find(long)
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: Optional [0.19 ms]
+                CustomerRepository-->>CustomerService: Optional [0.24 ms]
                 deactivate CustomerRepository
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
@@ -329,13 +336,13 @@ sequenceDiagram
                 activate CustomerRepository
                 CustomerRepository-->>CustomerService: Customer [0.00 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: Optional [0.62 ms]
+            CustomerService-->>CustomerResource: Optional [0.94 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [1.07 ms]
+        CustomerResource-->>Caller: Response [1.13 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread http-nio-8092-exec-7
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -370,7 +377,7 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread http-nio-8092-exec-4
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -385,7 +392,7 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 0.12 ms | thread XNIO-1 task-3
+        Note over Caller,AuditLog: CustomerResource.create — 0.11 ms | thread http-nio-8092-exec-6
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -412,11 +419,11 @@ sequenceDiagram
                 deactivate AuditObserver
             CustomerService-->>CustomerResource: Customer [0.10 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.12 ms]
+        CustomerResource-->>Caller: Response [0.11 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.02 ms | thread http-nio-8092-exec-5
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -427,11 +434,11 @@ sequenceDiagram
                 deactivate CustomerRepository
             CustomerService-->>CustomerResource: List [0.02 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.04 ms]
+        CustomerResource-->>Caller: List [0.02 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.delete — 0.85 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerRepository: CustomerResource.delete — 0.84 ms | thread http-nio-8092-exec-8
         Caller->>CustomerResource: delete(long)
         activate CustomerResource
             CustomerResource->>CustomerService: delete(long)
@@ -440,24 +447,24 @@ sequenceDiagram
                 activate CustomerRepository
                 CustomerRepository-->>CustomerService: boolean [0.03 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: boolean [0.53 ms]
+            CustomerService-->>CustomerResource: boolean [0.80 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.85 ms]
+        CustomerResource-->>Caller: Response [0.84 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.07 ms | thread XNIO-1 task-3
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.02 ms | thread http-nio-8092-exec-7
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.02 ms]
+                CustomerRepository-->>CustomerService: List [0.01 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.06 ms]
+            CustomerService-->>CustomerResource: List [0.02 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.07 ms]
+        CustomerResource-->>Caller: List [0.02 ms]
         deactivate CustomerResource
     end
 ```

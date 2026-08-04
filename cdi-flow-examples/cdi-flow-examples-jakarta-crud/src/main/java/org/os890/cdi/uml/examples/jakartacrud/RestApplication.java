@@ -14,17 +14,16 @@
 
 package org.os890.cdi.uml.examples.jakartacrud;
 
-import java.util.List;
+import jakarta.ws.rs.ApplicationPath;
+import jakarta.ws.rs.core.Application;
 
 /**
- * A customer as the API hands it out and takes it in.
+ * Where the REST endpoints live - and nothing else.
  *
- * <p>A record, so never a bean and never recorded - and deliberately without helper-methods: to a
- * JSON binding, a method on a record looks like one more property to write out.
+ * <p>The server finds the resources, the exception-mapper and the providers on its own, cdi-flow's
+ * request-filter among them; and because they are CDI beans, they are recorded. That is the whole
+ * difference to wiring a REST layer by hand: there is nothing to list here.
  */
-public record Customer(Long id, String name, String email, List<String> tags) {
-
-    public Customer withId(Long assignedId) {
-        return new Customer(assignedId, name, email, tags);
-    }
+@ApplicationPath("/api")
+public class RestApplication extends Application {
 }

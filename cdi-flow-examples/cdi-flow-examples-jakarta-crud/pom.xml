@@ -32,17 +32,50 @@
     <name>cdi-flow (examples) - jakarta crud</name>
     <description>
         The same CRUD application as the Quarkus example - same beans, same Angular front-end, same
-        Playwright suite - on a plain Jakarta stack: Weld SE with RESTEasy on Undertow. It records
-        the same use-cases through the portable extension, which is the point of having both.
+        Playwright suite - deployed to a Jakarta EE server: TomEE embedded, which is Tomcat with
+        OpenWebBeans for CDI and CXF for Jakarta REST. It records the same use-cases through the
+        portable extension, which is the point of having both.
     </description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
-        <version.resteasy>7.0.0.Final</version.resteasy>
-        <version.jackson>2.22.0</version.jackson>
+        <version.tomee>10.1.4</version.tomee>
+        <version.openwebbeans.tomee>4.0.3</version.openwebbeans.tomee>
         <version.plugin.exec>3.5.1</version.plugin.exec>
         <version.plugin.dependency>3.8.1</version.plugin.dependency>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!--
+                The server decides which CDI implementation it runs on, not this project. The root
+                pom manages OpenWebBeans for the examples which bootstrap it themselves, and mixing
+                that version into TomEE's own gets as far as `NoSuchMethodError` while the
+                application deploys - so these two are pinned back to what the server expects.
+            -->
+            <dependency>
+                <groupId>org.apache.openwebbeans</groupId>
+                <artifactId>openwebbeans-impl</artifactId>
+                <version>${version.openwebbeans.tomee}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.openwebbeans</groupId>
+                <artifactId>openwebbeans-spi</artifactId>
+                <version>${version.openwebbeans.tomee}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <repositories>
+        <!--
+            TomEE is published through Apache's repository, and an offline build only accepts the
+            artifacts it already has under the repository-id they were fetched from.
+        -->
+        <repository>
+            <id>apache</id>
+            <url>https://repo1.maven.org/maven2</url>
+        </repository>
+    </repositories>
 
     <dependencies>
         <!-- the addon: the portable extension, plus the filter which reads the use-case header -->
@@ -55,39 +88,17 @@
             <artifactId>cdi-flow-jaxrs</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>jakarta.enterprise</groupId>
-            <artifactId>jakarta.enterprise.cdi-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.weld.se</groupId>
-            <artifactId>weld-se-core</artifactId>
-        </dependency>
+        <!--
+            The server: Tomcat, OpenWebBeans for CDI, CXF for Jakarta REST and Johnzon for JSON. The
+            application is deployed into it as a web application, exactly as it would be into a
+            standalone TomEE - only started from a main-method, so the example needs no installation.
 
-        <!-- a real MicroProfile-Config implementation, so META-INF/microprofile-config.properties is read -->
+            It brings the Jakarta APIs along, which is why none of them is declared here.
+        -->
         <dependency>
-            <groupId>org.eclipse.microprofile.config</groupId>
-            <artifactId>microprofile-config-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.smallrye.config</groupId>
-            <artifactId>smallrye-config</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-core</artifactId>
-            <version>${version.resteasy}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-undertow</artifactId>
-            <version>${version.resteasy}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${version.jackson}</version>
+            <groupId>org.apache.tomee</groupId>
+            <artifactId>tomee-embedded</artifactId>
+            <version>${version.tomee}</version>
         </dependency>
     </dependencies>
 
