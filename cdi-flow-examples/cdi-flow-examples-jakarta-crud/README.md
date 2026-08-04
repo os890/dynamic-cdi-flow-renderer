@@ -1,89 +1,91 @@
-# cdi-flow in a Quarkus application, end to end
+# The same demo on a plain Jakarta stack
 
-A CRUD application — Quarkus backend, Angular front-end, one process — whose use-cases are driven
-through a real browser while it records a sequence diagram of each of them.
+Same beans, same Angular front-end, same Playwright suite as
+[the Quarkus example](../cdi-flow-examples-quarkus-crud) — on **Weld SE with RESTEasy on Undertow**
+instead of Quarkus. It exists to show that the addon is used the same way either side of that
+choice, and that what it records does not depend on it.
 
 ```bash
 ./run.sh                      # build, drive the use-cases, and say where the diagrams are
 open target/flow-diagrams/use-cases.md
 ```
 
-That is the whole thing. The script builds, runs the suite and prints a path; everything about
-recording is in the addon.
+## What this application does for cdi-flow
 
-## What the application does for it
-
-**One dependency**, in [`pom.xml`](pom.xml):
+**Two dependencies** — the addon and the filter that reads the use-case header:
 
 ```xml
 <dependency>
     <groupId>org.os890.cdi.uml</groupId>
-    <artifactId>cdi-flow-quarkus</artifactId>
+    <artifactId>dynamic-cdi-flow-renderer</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.os890.cdi.uml</groupId>
+    <artifactId>cdi-flow-jaxrs</artifactId>
 </dependency>
 ```
 
-**Two lines of configuration**, in [`application.properties`](src/main/resources/application.properties):
+**Two lines of configuration**, in
+[`META-INF/microprofile-config.properties`](src/main/resources/META-INF/microprofile-config.properties)
+— and neither of them switches recording on, because a portable container runs the extension in the
+jar and it records unless told otherwise:
 
 ```properties
-cdi-flow.enabled=true
 cdi-flow.output-directory=target/flow-diagrams
+cdi-flow.file-header=Licensed under the Apache License, Version 2.0
 ```
 
-`enabled` is needed because this is a *packaged* application — a production build records nothing
-unless it is told to. In dev-mode and in tests the extension needs neither line.
+**One line in the sources**: `new FlowLabelFilter()` among the JAX-RS singletons in
+[`CrudRestApplication`](src/main/java/org/os890/cdi/uml/examples/jakartacrud/CrudRestApplication.java).
+The Quarkus extension registers that filter by itself; a hand-wired JAX-RS application has to name
+its providers, so here it is named.
 
-**Nothing in the sources.** No annotation, no interceptor, no startup hook, no include-pattern: the
-extension attaches the recorder to the beans of this application while Quarkus builds it, and arms
-it when the application starts.
+The test-suite side is identical to the Quarkus example — the same nine-line fixture setting
+`X-Flow-Label`, and the same four specs.
 
-## What the test-suite does for it
+## What is different, and why
 
-One fixture, [`e2e/tests/flow.ts`](e2e/tests/flow.ts) — every request of a test carries the name of
-that test:
-
-```ts
-export const test = base.extend({
-  context: async ({ context }, use, testInfo) => {
-    await context.setExtraHTTPHeaders({ 'X-Flow-Label': testInfo.title });
-    await use(context);
-  },
-});
-```
-
-The addon's request-filter reads that header, and everything recorded while the request is handled is
-filed under that use-case. A test may add a `description` annotation, which ends up above its diagram
-in the generated document.
-
-One application serves the whole suite: there is no restart between use-cases, and no output
-directory to juggle.
-
-## What comes out
-
-```
-target/flow-diagrams/
-├── use-cases.md                        every use-case, described, with its diagram inline
-├── a-customer-is-created-with-tags/
-│   ├── use-case.mmd                    the whole use-case: one block per request
-│   ├── README.md                       the chains it is made of, and how often each occurred
-│   └── CustomerResource_create_….mmd   one file per distinct chain
-├── a-customer-without-a-name-is-refused/
-├── a-customer-is-edited/
-└── a-customer-is-deleted/
-```
-
-The beans are arranged to show what the recorder can do:
-
-| In the diagram | Where it comes from |
+| Difference | Why |
 |---|---|
-| a nested chain, four levels deep | `CustomerResource` → `CustomerService` → the beans it calls |
-| `loop 3 times` | `TagNormalizer`, called once per tag |
-| `-)` with `[event]` | `AuditObserver`, observing the synchronous `CustomerCreated` event |
-| `--x throws BusinessRuleException` | a customer without a name, refused by `CustomerValidation` |
-| several blocks in one diagram | a use-case which lists, creates and then updates |
+| `@ApplicationScoped` on `CustomerResource` and `BusinessRuleMapper` | `@Path` and `@Provider` are bean-defining annotations in ArC and are not in a portable container. Only a bean is intercepted, so only a bean is recorded — this is the one thing to remember when moving the demo across |
+| `@Path("/customers")` instead of `@Path("/api/customers")` | the JAX-RS application is deployed under `/api` by `CrudApplication`; the URLs the front-end calls are the same |
+| `CrudApplication` and `CrudRestApplication` exist at all | Quarkus arranges the container, the REST layer and the front-end; here they are wired by hand, which is what a plain Jakarta application does |
+| the front-end is built by `exec-maven-plugin` | Quarkus has Quinoa for that; plain Jakarta has nothing of the kind, so the build runs the same two pnpm commands itself |
+| `CustomerResource` and the mapper are taken **from the container** | `container.select(CustomerResource.class).get()` yields the intercepted bean. A resource RESTEasy instantiates itself is not a bean, and would be recorded nowhere — the one trap in a hand-wired REST layer |
+
+Nothing in that list is about cdi-flow. The recorder is attached by the portable extension in the
+jar, and arms itself; there is no extension class, no startup hook and no interceptor binding
+anywhere in this application.
+
+## What the two containers record
+
+Driving the same four use-cases through both and normalizing the timings and thread-names away, the
+combined diagrams come out **identical for three of the four**, line for line:
+
+```
+a-customer-is-created-with-tags:      IDENTICAL (3 requests)
+a-customer-is-edited:                 IDENTICAL (5 requests)
+a-customer-is-deleted:                IDENTICAL (5 requests)
+a-customer-without-a-name-is-refused: one line differs
+```
+
+The one line:
+
+```diff
+- Caller->>BusinessRuleMapper: toResponse(BusinessRuleException)   # Quarkus REST
++ Caller->>BusinessRuleMapper: toResponse(Throwable)               # RESTEasy
+```
+
+RESTEasy calls the mapper through the raw `ExceptionMapper#toResponse(Throwable)` bridge method,
+Quarkus REST calls the typed one. The recording is right in both cases — it says what actually
+happened, which is the whole point of recording rather than drawing.
+
+Everything else matches: the same nesting, the same `loop 3 times` over the tags, the same event
+arrow into the audit observer, and the same exception travelling out through three frames.
 
 ## The recorded diagrams
 
-Copied out of `target/flow-diagrams/` as they were written - nothing here is hand-drawn, and only the timings differ from run to run.
+Copied out of `target/flow-diagrams/` as they were written, recorded on Weld. Put them next to [the Quarkus ones](../cdi-flow-examples-quarkus-crud/README.md#the-recorded-diagrams): three of the four are identical line for line, and the fourth differs in the one line about `toResponse` described above.
 
 ### a customer is created with tags
 
@@ -102,59 +104,59 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.84 ms | thread executor-thread-1
+        Note over Caller,CustomerRepository: CustomerResource.list — 5.44 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.19 ms]
+                CustomerRepository-->>CustomerService: List [0.22 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.47 ms]
+            CustomerService-->>CustomerResource: List [0.39 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.84 ms]
+        CustomerResource-->>Caller: List [5.44 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 3.41 ms | thread executor-thread-2
+        Note over Caller,AuditLog: CustomerResource.create — 2.77 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
             activate CustomerService
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
-                CustomerValidation-->>CustomerService: void [0.01 ms]
+                CustomerValidation-->>CustomerService: void [0.03 ms]
                 deactivate CustomerValidation
                 loop 3 times
                     CustomerService->>TagNormalizer: normalize(String)
                     activate TagNormalizer
-                    TagNormalizer-->>CustomerService: String [0.01 ms]
+                    TagNormalizer-->>CustomerService: String [0.03 ms]
                     deactivate TagNormalizer
                 end
                 CustomerService->>CustomerRepository: save(Customer)
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: Customer [0.01 ms]
+                CustomerRepository-->>CustomerService: Customer [0.02 ms]
                 deactivate CustomerRepository
                 CustomerService->>CustomerNumbers: nextFor(Customer)
                 activate CustomerNumbers
-                CustomerNumbers-->>CustomerService: String [0.29 ms]
+                CustomerNumbers-->>CustomerService: String [0.28 ms]
                 deactivate CustomerNumbers
                 CustomerService-)AuditObserver: [event] onCustomerCreated(CustomerCreated)
                 activate AuditObserver
                     AuditObserver->>AuditLog: record(String)
                     activate AuditLog
-                    AuditLog-->>AuditObserver: void [0.00 ms]
+                    AuditLog-->>AuditObserver: void [0.02 ms]
                     deactivate AuditLog
-                AuditObserver-->>CustomerService: void [0.14 ms]
+                AuditObserver-->>CustomerService: void [0.20 ms]
                 deactivate AuditObserver
-            CustomerService-->>CustomerResource: Customer [0.92 ms]
+            CustomerService-->>CustomerResource: Customer [2.71 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [3.41 ms]
+        CustomerResource-->>Caller: Response [2.77 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -184,40 +186,40 @@ sequenceDiagram
     participant CustomerValidation
     participant BusinessRuleMapper
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.06 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.02 ms]
+                CustomerRepository-->>CustomerService: List [0.01 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.04 ms]
+            CustomerService-->>CustomerResource: List [0.02 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.06 ms]
+        CustomerResource-->>Caller: List [0.03 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerValidation: CustomerResource.create — 0.08 ms | thread executor-thread-2
+        Note over Caller,CustomerValidation: CustomerResource.create — 0.14 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
             activate CustomerService
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
-                CustomerValidation--xCustomerService: throws BusinessRuleException [0.04 ms]
+                CustomerValidation--xCustomerService: throws BusinessRuleException [0.10 ms]
                 deactivate CustomerValidation
-            CustomerService--xCustomerResource: throws BusinessRuleException [0.05 ms]
+            CustomerService--xCustomerResource: throws BusinessRuleException [0.12 ms]
             deactivate CustomerService
-        CustomerResource--xCaller: throws BusinessRuleException [0.08 ms]
+        CustomerResource--xCaller: throws BusinessRuleException [0.14 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,BusinessRuleMapper: BusinessRuleMapper.toResponse — 0.03 ms | thread executor-thread-2
-        Caller->>BusinessRuleMapper: toResponse(BusinessRuleException)
+        Note over Caller,BusinessRuleMapper: BusinessRuleMapper.toResponse — 0.06 ms | thread XNIO-1 task-2
+        Caller->>BusinessRuleMapper: toResponse(Throwable)
         activate BusinessRuleMapper
-        BusinessRuleMapper-->>Caller: Response [0.03 ms]
+        BusinessRuleMapper-->>Caller: Response [0.06 ms]
         deactivate BusinessRuleMapper
     end
 ```
@@ -238,7 +240,7 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -253,7 +255,7 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 0.10 ms | thread executor-thread-2
+        Note over Caller,AuditLog: CustomerResource.create — 0.11 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -276,37 +278,37 @@ sequenceDiagram
                     activate AuditLog
                     AuditLog-->>AuditObserver: void [0.00 ms]
                     deactivate AuditLog
-                AuditObserver-->>CustomerService: void [0.01 ms]
+                AuditObserver-->>CustomerService: void [0.02 ms]
                 deactivate AuditObserver
-            CustomerService-->>CustomerResource: Customer [0.08 ms]
+            CustomerService-->>CustomerResource: Customer [0.09 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.10 ms]
+        CustomerResource-->>Caller: Response [0.11 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.06 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
             activate CustomerService
                 CustomerService->>CustomerRepository: findAll()
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.03 ms]
+                CustomerRepository-->>CustomerService: List [0.02 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.04 ms]
+            CustomerService-->>CustomerResource: List [0.03 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: List [0.06 ms]
+        CustomerResource-->>Caller: List [0.04 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerValidation: CustomerResource.update — 1.08 ms | thread executor-thread-2
+        Note over Caller,CustomerValidation: CustomerResource.update — 1.00 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: update(long, Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: update(long, Customer)
             activate CustomerService
                 CustomerService->>CustomerRepository: find(long)
                 activate CustomerRepository
-                CustomerRepository-->>CustomerService: Optional [0.01 ms]
+                CustomerRepository-->>CustomerService: Optional [0.18 ms]
                 deactivate CustomerRepository
                 CustomerService->>CustomerValidation: check(Customer)
                 activate CustomerValidation
@@ -316,13 +318,13 @@ sequenceDiagram
                 activate CustomerRepository
                 CustomerRepository-->>CustomerService: Customer [0.00 ms]
                 deactivate CustomerRepository
-            CustomerService-->>CustomerResource: Optional [0.83 ms]
+            CustomerService-->>CustomerResource: Optional [0.58 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [1.08 ms]
+        CustomerResource-->>Caller: Response [1.00 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -354,7 +356,7 @@ sequenceDiagram
     participant AuditObserver
     participant AuditLog
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -369,7 +371,7 @@ sequenceDiagram
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,AuditLog: CustomerResource.create — 0.09 ms | thread executor-thread-2
+        Note over Caller,AuditLog: CustomerResource.create — 0.12 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: create(Customer)
         activate CustomerResource
             CustomerResource->>CustomerService: create(Customer)
@@ -392,45 +394,15 @@ sequenceDiagram
                     activate AuditLog
                     AuditLog-->>AuditObserver: void [0.00 ms]
                     deactivate AuditLog
-                AuditObserver-->>CustomerService: void [0.01 ms]
+                AuditObserver-->>CustomerService: void [0.02 ms]
                 deactivate AuditObserver
-            CustomerService-->>CustomerResource: Customer [0.07 ms]
+            CustomerService-->>CustomerResource: Customer [0.10 ms]
             deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.09 ms]
+        CustomerResource-->>Caller: Response [0.12 ms]
         deactivate CustomerResource
     end
     rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread executor-thread-2
-        Caller->>CustomerResource: list()
-        activate CustomerResource
-            CustomerResource->>CustomerService: list()
-            activate CustomerService
-                CustomerService->>CustomerRepository: findAll()
-                activate CustomerRepository
-                CustomerRepository-->>CustomerService: List [0.02 ms]
-                deactivate CustomerRepository
-            CustomerService-->>CustomerResource: List [0.02 ms]
-            deactivate CustomerService
-        CustomerResource-->>Caller: List [0.04 ms]
-        deactivate CustomerResource
-    end
-    rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.delete — 0.05 ms | thread executor-thread-2
-        Caller->>CustomerResource: delete(long)
-        activate CustomerResource
-            CustomerResource->>CustomerService: delete(long)
-            activate CustomerService
-                CustomerService->>CustomerRepository: delete(long)
-                activate CustomerRepository
-                CustomerRepository-->>CustomerService: boolean [0.01 ms]
-                deactivate CustomerRepository
-            CustomerService-->>CustomerResource: boolean [0.02 ms]
-            deactivate CustomerService
-        CustomerResource-->>Caller: Response [0.05 ms]
-        deactivate CustomerResource
-    end
-    rect rgb(244, 244, 244)
-        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread executor-thread-2
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.04 ms | thread XNIO-1 task-2
         Caller->>CustomerResource: list()
         activate CustomerResource
             CustomerResource->>CustomerService: list()
@@ -444,13 +416,34 @@ sequenceDiagram
         CustomerResource-->>Caller: List [0.04 ms]
         deactivate CustomerResource
     end
+    rect rgb(244, 244, 244)
+        Note over Caller,CustomerRepository: CustomerResource.delete — 0.68 ms | thread XNIO-1 task-2
+        Caller->>CustomerResource: delete(long)
+        activate CustomerResource
+            CustomerResource->>CustomerService: delete(long)
+            activate CustomerService
+                CustomerService->>CustomerRepository: delete(long)
+                activate CustomerRepository
+                CustomerRepository-->>CustomerService: boolean [0.03 ms]
+                deactivate CustomerRepository
+            CustomerService-->>CustomerResource: boolean [0.61 ms]
+            deactivate CustomerService
+        CustomerResource-->>Caller: Response [0.68 ms]
+        deactivate CustomerResource
+    end
+    rect rgb(244, 244, 244)
+        Note over Caller,CustomerRepository: CustomerResource.list — 0.03 ms | thread XNIO-1 task-2
+        Caller->>CustomerResource: list()
+        activate CustomerResource
+            CustomerResource->>CustomerService: list()
+            activate CustomerService
+                CustomerService->>CustomerRepository: findAll()
+                activate CustomerRepository
+                CustomerRepository-->>CustomerService: List [0.01 ms]
+                deactivate CustomerRepository
+            CustomerService-->>CustomerResource: List [0.02 ms]
+            deactivate CustomerService
+        CustomerResource-->>Caller: List [0.03 ms]
+        deactivate CustomerResource
+    end
 ```
-## Running it differently
-
-```bash
-./run.sh --grep "deleted"        # arguments are handed to Playwright
-mvn quarkus:dev                  # dev-mode records too, with no configuration at all
-```
-
-In dev-mode the diagrams appear as you click through <http://localhost:8091>, and every reload keeps
-recording into the same use-case directories.

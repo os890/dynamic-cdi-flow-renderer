@@ -50,6 +50,7 @@
             and OpenWebBeans as test-dependencies, and this one brings its own container.
         -->
         <module>cdi-flow-examples/cdi-flow-examples-quarkus-crud</module>
+        <module>cdi-flow-examples/cdi-flow-examples-jakarta-crud</module>
     </modules>
 
     <properties>
