@@ -25,6 +25,9 @@ import java.util.Set;
  * The whole use-case as one diagram: every chain it produced, in the order the application handled
  * them, each in a block of its own.
  *
+ * <p>It is titled with the use-case it belongs to, which is where a reader looks for that - a diagram
+ * copied out of a directory otherwise says nothing about what it is.
+ *
  * <p>This is stitched, not recorded, and it has to be: a flow ends when its outermost call returns,
  * and a request is an outermost call on a thread of its own, so no recording can span two of them.
  * What is stitched are the recorded chains themselves - their arrows are copied across unchanged,
@@ -37,12 +40,21 @@ final class CombinedDiagram {
     private CombinedDiagram() {
     }
 
-    static String of(DiagramFormat format, List<RecordedChain> chains) {
-        return format == DiagramFormat.PLANTUML ? plantUml(chains) : mermaid(chains);
+    /**
+     * @param useCase the title to carry, or {@code null} when titles are switched off
+     */
+    static String of(DiagramFormat format, String useCase, List<RecordedChain> chains) {
+        return format == DiagramFormat.PLANTUML ? plantUml(useCase, chains) : mermaid(useCase, chains);
     }
 
-    private static String mermaid(List<RecordedChain> chains) {
+    private static String mermaid(String useCase, List<RecordedChain> chains) {
         List<String> lines = new ArrayList<>();
+        //front-matter is YAML, so the use-case is quoted and a quote inside it escaped
+        if (useCase != null) {
+            lines.add("---");
+            lines.add("title: \"" + useCase.replace("\"", "\\\"") + "\"");
+            lines.add("---");
+        }
         lines.add("sequenceDiagram");
         lines.add("    autonumber");
         lines.add("    participant Caller as caller");
@@ -59,9 +71,12 @@ final class CombinedDiagram {
         return String.join("\n", lines) + "\n";
     }
 
-    private static String plantUml(List<RecordedChain> chains) {
+    private static String plantUml(String useCase, List<RecordedChain> chains) {
         List<String> lines = new ArrayList<>();
         lines.add("@startuml");
+        if (useCase != null) {
+            lines.add("title " + useCase.replace("\n", " ").replace("\"", "'"));
+        }
         lines.add("autonumber");
         lines.add("hide footbox");
         lines.add("participant \"caller\" as Caller");

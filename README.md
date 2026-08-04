@@ -179,6 +179,12 @@ what a reviewer actually wants:
     └── <EntryPoint>_<method>_….mmd  one file per distinct chain
 ```
 
+Every diagram of a labelled flow is **titled with its use-case** - the single chains as well as the
+combined one - so a diagram copied out of a directory still says what it belongs to. A flow with no
+label gets no title, which is what keeps the output of an application that records no use-cases
+exactly as it was - and `cdi-flow.title-diagrams=false` leaves it off everywhere, for a diagram meant
+to be pasted somewhere that supplies its own heading.
+
 Identical chains - same participants, same calls, different microseconds - are collapsed to one
 file and counted, because a use-case checks the session before every request and reads the same list
 four times. `cdi-flow.combined-exclude-pattern` keeps a named entry-point out of the combined diagram

@@ -42,8 +42,23 @@ public final class MermaidSequenceRenderer extends AbstractSequenceDiagramRender
         return 1;
     }
 
+    /**
+     * Mermaid takes a title from a front-matter block, which is YAML - so the label is quoted, and a
+     * quote inside it is escaped rather than ending the value early.
+     */
+    @Override
+    protected void appendTitle(StringBuilder out, CallFlow flow) {
+        if (flow.label() == null || !config.isTitleDiagrams()) {
+            return;
+        }
+        out.append("---\n")
+                .append("title: \"").append(flow.label().name().replace("\"", "\\\"")).append("\"\n")
+                .append("---\n");
+    }
+
     @Override
     protected void appendPrologue(StringBuilder out, CallFlow flow, ParticipantNamer namer) {
+        appendTitle(out, flow);
         out.append("sequenceDiagram\n");
         out.append(INDENT).append("autonumber\n");
         out.append(INDENT).append("participant ").append(ParticipantNamer.CALLER_ID)

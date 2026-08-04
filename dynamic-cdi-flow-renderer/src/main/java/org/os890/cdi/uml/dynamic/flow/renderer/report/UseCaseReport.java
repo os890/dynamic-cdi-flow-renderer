@@ -97,7 +97,7 @@ final class UseCaseReport {
             return;
         }
         DiagramWriter.replace(directory, COMBINED_FILE_NAME + config.outputFormat().fileExtension(),
-                DiagramWriter.withHeader(config, CombinedDiagram.of(config.outputFormat(), chains)));
+                DiagramWriter.withHeader(config, CombinedDiagram.of(config.outputFormat(), titleOfDiagram(), chains)));
         DiagramWriter.replace(directory, INDEX_FILE_NAME, index());
     }
 
@@ -119,6 +119,11 @@ final class UseCaseReport {
                     .append(chain.occurrences()).append("× |\n");
         }
         return index.toString();
+    }
+
+    /** the title the combined diagram carries, or {@code null} when titles are switched off */
+    private String titleOfDiagram() {
+        return config.isTitleDiagrams() ? label.name() : null;
     }
 
     String combinedFileName() {
@@ -155,7 +160,7 @@ final class UseCaseReport {
     }
 
     String combinedDiagram() {
-        return CombinedDiagram.of(config.outputFormat(), chains);
+        return CombinedDiagram.of(config.outputFormat(), titleOfDiagram(), chains);
     }
 
     /** One chain kept as a file, and how often that same shape was recorded. */

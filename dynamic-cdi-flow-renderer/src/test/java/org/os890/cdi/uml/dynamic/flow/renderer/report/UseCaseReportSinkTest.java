@@ -72,6 +72,8 @@ class UseCaseReportSinkTest {
 
         String combined = Files.readString(useCase.resolve("use-case.mmd"));
         MermaidAssertions.assertWellFormed(combined);
+        //the use-case is on the diagram itself, not only in the directory-name
+        assertThat(combined).startsWith("---\ntitle: \"a contact is deleted\"\n---\nsequenceDiagram");
         assertThat(combined).contains("ContactResource.list", "ContactResource.delete");
         //one block per request, and every lane declared once
         assertThat(combined.lines().filter(line -> line.strip().startsWith("rect rgb")).count()).isEqualTo(2);
@@ -167,6 +169,7 @@ class UseCaseReportSinkTest {
         Path useCase = tempDir.resolve("a-contact-is-deleted");
         String combined = Files.readString(useCase.resolve("use-case.puml"));
         PlantUmlAssertions.assertWellFormed(combined);
+        assertThat(combined).startsWith("@startuml\ntitle a contact is deleted\n");
         //one group per request, the caller declared once, and no Mermaid left anywhere
         assertThat(combined.lines().filter(line -> line.strip().startsWith("group ")).count()).isEqualTo(2);
         assertThat(combined.lines().filter(line -> line.contains("as Caller")).count()).isEqualTo(1);
@@ -179,6 +182,50 @@ class UseCaseReportSinkTest {
     }
 
     @Test
+    @DisplayName("the single chains of a use-case are titled with it as well")
+    void singleChainsAreTitled(@TempDir Path tempDir) throws IOException {
+        FlowConfig config = configIn(tempDir);
+
+        new UseCaseReportSink(config).onFlowRecorded(listFlow(config, DELETING));
+
+        Path chain = Files.list(tempDir.resolve("a-contact-is-deleted"))
+                .filter(path -> path.getFileName().toString().startsWith("ContactResource_list_"))
+                .findFirst()
+                .orElseThrow();
+        String diagram = Files.readString(chain);
+        MermaidAssertions.assertWellFormed(diagram);
+        assertThat(diagram).contains("title: \"a contact is deleted\"");
+    }
+
+    @Test
+    @DisplayName("title-diagrams=false leaves the use-case off the diagrams, and nothing else")
+    void titlesCanBeSwitchedOff(@TempDir Path tempDir) throws IOException {
+        FlowConfig config = FlowConfig.builder()
+                .outputDirectory(tempDir)
+                .titleDiagrams(false)
+                .build();
+        UseCaseReportSink sink = new UseCaseReportSink(config);
+
+        sink.onFlowRecorded(listFlow(config, DELETING));
+        sink.onFlowRecorded(deleteFlow(config, DELETING));
+
+        Path useCase = tempDir.resolve("a-contact-is-deleted");
+        String combined = Files.readString(useCase.resolve("use-case.mmd"));
+        MermaidAssertions.assertWellFormed(combined);
+        assertThat(combined).startsWith("sequenceDiagram").doesNotContain("title:");
+
+        Path chain = Files.list(useCase)
+                .filter(path -> path.getFileName().toString().startsWith("ContactResource_list_"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(Files.readString(chain)).startsWith("sequenceDiagram").doesNotContain("title:");
+
+        //the use-case is still a use-case: its own directory, its index and its entry in the document
+        assertThat(Files.readString(useCase.resolve("README.md"))).contains("a contact is deleted");
+        assertThat(Files.readString(tempDir.resolve("use-cases.md"))).contains("## 1. a contact is deleted");
+    }
+
+    @Test
     @DisplayName("an unlabelled flow is written flat, exactly as before, and reports nothing")
     void unlabelledFlowsAreWrittenFlat(@TempDir Path tempDir) throws IOException {
         FlowConfig config = configIn(tempDir);
@@ -188,6 +235,9 @@ class UseCaseReportSinkTest {
         assertThat(Files.list(tempDir).map(path -> path.getFileName().toString()))
                 .singleElement()
                 .satisfies(name -> assertThat(name).startsWith("ContactResource_list_").endsWith(".mmd"));
+        //and carries no title at all, so an application which records no use-cases sees what it did before
+        assertThat(Files.readString(Files.list(tempDir).findFirst().orElseThrow()))
+                .startsWith("sequenceDiagram");
     }
 
     @Test
