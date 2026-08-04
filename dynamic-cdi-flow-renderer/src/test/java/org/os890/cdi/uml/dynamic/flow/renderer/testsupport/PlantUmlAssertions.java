@@ -38,6 +38,8 @@ public final class PlantUmlAssertions {
             Pattern.compile("^(\\w+)\\s+(-->x|-->|->>|->x|->)\\s+(\\w+)\\s+:\\s*(.*)$");
     private static final Pattern ACTIVATION = Pattern.compile("^(activate|deactivate)\\s+(\\w+)$");
     private static final Pattern LOOP_START = Pattern.compile("^loop\\s+(\\d+)\\s+times$");
+    /** one request of a combined use-case diagram */
+    private static final Pattern GROUP_START = Pattern.compile("^group\\s+.+$");
     private static final Pattern NOTE_START = Pattern.compile("^note over\\s+[\\w,\\s]+$");
     /** the single-line form used for the hotspot-marker */
     private static final Pattern INLINE_NOTE = Pattern.compile("^note over\\s+\\w+\\s+:\\s*(.*)$");
@@ -89,6 +91,10 @@ public final class PlantUmlAssertions {
             }
             if (LOOP_START.matcher(line).matches()) {
                 blocks.push("loop");
+                continue;
+            }
+            if (GROUP_START.matcher(line).matches()) {
+                blocks.push("group");
                 continue;
             }
             if ("end".equals(line)) {

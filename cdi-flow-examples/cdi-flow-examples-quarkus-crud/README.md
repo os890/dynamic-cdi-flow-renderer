@@ -5,6 +5,7 @@ through a real browser while it records a sequence diagram of each of them.
 
 ```bash
 ./run.sh                      # build, drive the use-cases, and say where the diagrams are
+./run.sh --format plantuml    # the same flows as .puml instead
 open target/flow-diagrams/use-cases.md
 ```
 
@@ -448,9 +449,15 @@ sequenceDiagram
 ## Running it differently
 
 ```bash
-./run.sh --grep "deleted"        # arguments are handed to Playwright
+./run.sh --format plantuml       # the same flows in the other notation, as .puml
+./run.sh --grep "deleted"        # anything else is handed to Playwright
 mvn quarkus:dev                  # dev-mode records too, with no configuration at all
 ```
+
+`--format` sets nothing but `cdi-flow.output-format` for the run: which calls are recorded, how they
+nest and how they fold is decided by the same code either way, and the combined diagram of a use-case
+is stitched in the notation asked for - `group` blocks instead of `rect` ones. The generated document
+inlines whichever it is.
 
 In dev-mode the diagrams appear as you click through <http://localhost:8091>, and every reload keeps
 recording into the same use-case directories.
