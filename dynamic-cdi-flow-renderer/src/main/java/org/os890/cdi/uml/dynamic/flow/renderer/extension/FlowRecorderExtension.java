@@ -59,7 +59,9 @@ public class FlowRecorderExtension implements Extension {
      */
     void startRecorder(@Observes BeforeBeanDiscovery beforeBeanDiscovery) {
         //a previous container in the same JVM may still be registered
-        FlowRuntime.deactivate();
+        FlowRuntime.reset();
+        //this container arms and disarms the recorder, so it must not arm itself on the first call
+        FlowRuntime.markContainerManaged();
 
         config = FlowConfig.load();
         if (!config.isEnabled()) {
@@ -68,7 +70,7 @@ public class FlowRecorderExtension implements Extension {
         }
 
         beforeBeanDiscovery.addInterceptorBinding(FlowRecorded.class);
-        runtime = FlowRuntime.activate(config, new FileFlowSink(config));
+        runtime = FlowRuntime.activate(config);
 
         LOGGER.info(() -> "cdi-flow is recording call-flows into " + config.outputDirectory()
                 + " (" + config + ", MicroProfile-Config "

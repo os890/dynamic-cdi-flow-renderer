@@ -49,7 +49,12 @@ public final class PlantUmlAssertions {
 
     public static void assertWellFormed(String diagram) {
         String[] lines = diagram.split("\n", -1);
-        assertThat(lines[0]).as("first line of the diagram").isEqualTo("@startuml");
+        //a configured file-header sits in front of the diagram, as a comment PlantUML does not draw
+        int start = 0;
+        while (start < lines.length && lines[start].strip().startsWith("'")) {
+            start++;
+        }
+        assertThat(lines[start]).as("first line of the diagram").isEqualTo("@startuml");
         assertThat(diagram.stripTrailing()).as("last line of the diagram").endsWith("@enduml");
 
         Set<String> declaredParticipants = new HashSet<>();
@@ -58,9 +63,10 @@ public final class PlantUmlAssertions {
         boolean insideNote = false;
         int messageCount = 0;
 
-        for (int i = 1; i < lines.length; i++) {
+        for (int i = start + 1; i < lines.length; i++) {
             String line = lines[i].strip();
-            if (line.isEmpty() || "@enduml".equals(line) || DIRECTIVES.contains(line)) {
+            if (line.isEmpty() || "@enduml".equals(line) || DIRECTIVES.contains(line)
+                    || line.startsWith("'")) {
                 continue;
             }
 

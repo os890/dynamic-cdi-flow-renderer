@@ -19,16 +19,13 @@ import org.os890.cdi.uml.dynamic.flow.renderer.api.FlowSink;
 import org.os890.cdi.uml.dynamic.flow.renderer.config.FlowConfig;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * Writes every recorded flow as a {@code .mmd} file into the configured output-directory
- * (the tmp-directory by default).
+ * (the tmp-directory by default), or into the sub-directory of the use-case it was labelled with.
  */
 public final class FileFlowSink implements FlowSink {
 
@@ -47,37 +44,13 @@ public final class FileFlowSink implements FlowSink {
         }
 
         try {
-            Path directory = config.outputDirectory();
-            Files.createDirectories(directory);
-            Path target = write(directory, DiagramFileNamer.baseNameFor(flow),
-                    config.outputFormat().fileExtension(), flow.toDiagram());
+            Path target = DiagramWriter.writeNew(DiagramWriter.directoryFor(config, flow),
+                    DiagramFileNamer.baseNameFor(flow), config.outputFormat().fileExtension(),
+                    DiagramWriter.withHeader(config, flow.toDiagram()));
             LOGGER.log(Level.FINE, () -> "recorded call-flow written to " + target);
         } catch (IOException | RuntimeException e) {
             //writing a diagram must never break the business-call which produced it
             LOGGER.log(Level.WARNING, e, () -> "could not write the call-flow diagram for " + flow);
-        }
-    }
-
-    /**
-     * Two flows of the same method can finish within the same millisecond, so a name-clash is
-     * resolved with a counter instead of overwriting an existing diagram.
-     */
-    private static Path write(Path directory, String baseName, String fileExtension, String content)
-            throws IOException {
-        for (int attempt = 0; ; attempt++) {
-            String candidateName = attempt == 0
-                    ? baseName + fileExtension
-                    : baseName + "-" + attempt + fileExtension;
-            Path candidate = directory.resolve(candidateName);
-            try {
-                Files.writeString(candidate, content, StandardCharsets.UTF_8,
-                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-                return candidate;
-            } catch (java.nio.file.FileAlreadyExistsException alreadyExists) {
-                if (attempt > 1_000) {
-                    throw alreadyExists;
-                }
-            }
         }
     }
 }

@@ -1,0 +1,16 @@
+{
+  "name": "cdi-flow-jakarta-crud-e2e",
+  "version": "0.1.0",
+  "description": "Drives the use-cases of the example through a browser, labelling each of them.",
+  "license": "Apache-2.0",
+  "private": true,
+  "packageManager": "pnpm@11.10.0",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "monocart-reporter": "^2.12.3",
+    "prettier": "^3.8.1"
+  }
+}
