@@ -46,6 +46,12 @@ export default defineConfig({
     reuseExistingServer: false,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { CRUD_PORT: String(PORT) },
+    env: {
+      CRUD_PORT: String(PORT),
+      //handed on when run.sh was asked for a notation; absent, the application's own choice stands
+      ...(process.env['CDI_FLOW_OUTPUT_FORMAT']
+        ? { CDI_FLOW_OUTPUT_FORMAT: process.env['CDI_FLOW_OUTPUT_FORMAT'] }
+        : {}),
+    },
   },
 });
