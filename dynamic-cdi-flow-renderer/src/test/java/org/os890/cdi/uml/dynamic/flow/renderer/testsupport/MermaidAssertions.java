@@ -40,6 +40,8 @@ public final class MermaidAssertions {
             Pattern.compile("^(\\w+)\\s*(-->>|->>|--x|-x|-\\)|->)\\s*(\\w+)\\s*:\\s*(.*)$");
     private static final Pattern ACTIVATION = Pattern.compile("^(activate|deactivate)\\s+(\\w+)$");
     private static final Pattern LOOP_START = Pattern.compile("^loop\\s+(\\d+)\\s+times$");
+    /** one request of a combined use-case diagram */
+    private static final Pattern RECT_START = Pattern.compile("^rect\\s+rgb\\(\\s*\\d+\\s*,\\s*\\d+\\s*,\\s*\\d+\\s*\\)$");
     private static final Pattern NOTE = Pattern.compile("^Note\\s+over\\s+([\\w,\\s]+):\\s*(.*)$");
 
     /** anything a CDI implementation adds to a generated class-name */
@@ -75,6 +77,10 @@ public final class MermaidAssertions {
             }
             if (LOOP_START.matcher(line).matches()) {
                 blocks.push("loop");
+                continue;
+            }
+            if (RECT_START.matcher(line).matches()) {
+                blocks.push("rect");
                 continue;
             }
             if ("end".equals(line)) {

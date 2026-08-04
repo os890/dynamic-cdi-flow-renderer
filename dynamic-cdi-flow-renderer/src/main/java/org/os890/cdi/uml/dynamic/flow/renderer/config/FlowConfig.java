@@ -42,8 +42,18 @@ public final class FlowConfig {
     public static final String KEY_COLLAPSE_PROXY_FRAMES = PREFIX + "collapse-proxy-frames";
     public static final String KEY_WRITE_FILES = PREFIX + "write-files";
     public static final String KEY_HOTSPOT_THRESHOLD_MS = PREFIX + "hotspot-threshold-ms";
+    public static final String KEY_GROUP_BY_LABEL = PREFIX + "group-by-label";
+    public static final String KEY_REPORT = PREFIX + "report";
+    public static final String KEY_MAX_COMBINED_REQUESTS = PREFIX + "max-combined-requests";
+    public static final String KEY_COMBINED_EXCLUDE_PATTERN = PREFIX + "combined-exclude-pattern";
+    public static final String KEY_LABEL_HEADER = PREFIX + "label-header";
+    public static final String KEY_DESCRIPTION_HEADER = PREFIX + "description-header";
+    public static final String KEY_FILE_HEADER = PREFIX + "file-header";
 
     public static final DiagramFormat DEFAULT_OUTPUT_FORMAT = DiagramFormat.MERMAID;
+    public static final String DEFAULT_LABEL_HEADER = "X-Flow-Label";
+    public static final String DEFAULT_DESCRIPTION_HEADER = "X-Flow-Description";
+    public static final int DEFAULT_MAX_COMBINED_REQUESTS = 25;
 
     private static final Logger LOGGER = Logger.getLogger(FlowConfig.class.getName());
 
@@ -57,6 +67,13 @@ public final class FlowConfig {
     private final boolean collapseProxyFrames;
     private final boolean writeFiles;
     private final long hotspotThresholdMillis;
+    private final boolean groupByLabel;
+    private final boolean report;
+    private final int maxCombinedRequests;
+    private final Pattern combinedExcludePattern;
+    private final String labelHeader;
+    private final String descriptionHeader;
+    private final String fileHeader;
 
     private FlowConfig(Builder builder) {
         this.enabled = builder.enabled;
@@ -69,6 +86,13 @@ public final class FlowConfig {
         this.collapseProxyFrames = builder.collapseProxyFrames;
         this.writeFiles = builder.writeFiles;
         this.hotspotThresholdMillis = builder.hotspotThresholdMillis;
+        this.groupByLabel = builder.groupByLabel;
+        this.report = builder.report;
+        this.maxCombinedRequests = builder.maxCombinedRequests;
+        this.combinedExcludePattern = builder.combinedExcludePattern;
+        this.labelHeader = builder.labelHeader;
+        this.descriptionHeader = builder.descriptionHeader;
+        this.fileHeader = builder.fileHeader;
     }
 
     public static FlowConfig load() {
@@ -88,6 +112,13 @@ public final class FlowConfig {
         builder.collapseProxyFrames = booleanValue(KEY_COLLAPSE_PROXY_FRAMES, true);
         builder.writeFiles = booleanValue(KEY_WRITE_FILES, true);
         builder.hotspotThresholdMillis = millisecondValue(KEY_HOTSPOT_THRESHOLD_MS);
+        builder.groupByLabel = booleanValue(KEY_GROUP_BY_LABEL, true);
+        builder.report = booleanValue(KEY_REPORT, true);
+        builder.maxCombinedRequests = countValue(KEY_MAX_COMBINED_REQUESTS, DEFAULT_MAX_COMBINED_REQUESTS);
+        builder.combinedExcludePattern = patternValue(KEY_COMBINED_EXCLUDE_PATTERN);
+        builder.labelHeader = stringValue(KEY_LABEL_HEADER, DEFAULT_LABEL_HEADER);
+        builder.descriptionHeader = stringValue(KEY_DESCRIPTION_HEADER, DEFAULT_DESCRIPTION_HEADER);
+        builder.fileHeader = stringValue(KEY_FILE_HEADER, null);
         return builder.build();
     }
 
@@ -102,6 +133,32 @@ public final class FlowConfig {
 
     private static boolean booleanValue(String key, boolean fallback) {
         return ConfigResolver.lookup(key).map(String::trim).map(Boolean::parseBoolean).orElse(fallback);
+    }
+
+    private static String stringValue(String key, String fallback) {
+        return ConfigResolver.lookup(key).map(String::trim).filter(v -> !v.isEmpty()).orElse(fallback);
+    }
+
+    /**
+     * @return the configured count, or the fallback when it is unset, not a number or not positive
+     */
+    private static int countValue(String key, int fallback) {
+        Optional<String> configured = ConfigResolver.lookup(key).map(String::trim).filter(v -> !v.isEmpty());
+        if (configured.isEmpty()) {
+            return fallback;
+        }
+        try {
+            int count = Integer.parseInt(configured.get());
+            if (count < 1) {
+                LOGGER.warning(() -> "'" + key + "' must be positive - ignoring it: " + count);
+                return fallback;
+            }
+            return count;
+        } catch (NumberFormatException e) {
+            LOGGER.log(Level.WARNING, e,
+                    () -> "'" + key + "' is not a number - ignoring it: " + configured.get());
+            return fallback;
+        }
     }
 
     /**
@@ -268,6 +325,54 @@ public final class FlowConfig {
         return hotspotThresholdMillis > 0;
     }
 
+    /**
+     * @return whether a labelled flow is written into a sub-directory of its own; an unlabelled
+     * flow is written straight into the output-directory either way
+     */
+    public boolean isGroupByLabel() {
+        return groupByLabel;
+    }
+
+    /**
+     * @return whether a labelled use-case also gets its combined diagram, its index and an entry in
+     * the generated document - the whole point of labelling, so on by default
+     */
+    public boolean isReport() {
+        return report;
+    }
+
+    /**
+     * @return how many requests a combined diagram may hold before the document links it instead of
+     * inlining it; a use-case of a hundred requests is a strip nobody can read
+     */
+    public int maxCombinedRequests() {
+        return maxCombinedRequests;
+    }
+
+    /**
+     * @return the entry-points ({@code Type.method}) an application considers noise in the story of a
+     * use-case - recorded and kept, but left out of the combined diagram; or {@code null}
+     */
+    public Pattern combinedExcludePattern() {
+        return combinedExcludePattern;
+    }
+
+    public String labelHeader() {
+        return labelHeader;
+    }
+
+    public String descriptionHeader() {
+        return descriptionHeader;
+    }
+
+    /**
+     * @return a line written as a comment at the top of every generated diagram - a licence header,
+     * typically, so a build which insists on one does not need an exclusion; or {@code null}
+     */
+    public String fileHeader() {
+        return fileHeader;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -297,6 +402,48 @@ public final class FlowConfig {
         private boolean collapseProxyFrames = true;
         private boolean writeFiles = true;
         private long hotspotThresholdMillis;
+        private boolean groupByLabel = true;
+        private boolean report = true;
+        private int maxCombinedRequests = DEFAULT_MAX_COMBINED_REQUESTS;
+        private Pattern combinedExcludePattern;
+        private String labelHeader = DEFAULT_LABEL_HEADER;
+        private String descriptionHeader = DEFAULT_DESCRIPTION_HEADER;
+        private String fileHeader;
+
+        public Builder groupByLabel(boolean value) {
+            this.groupByLabel = value;
+            return this;
+        }
+
+        public Builder report(boolean value) {
+            this.report = value;
+            return this;
+        }
+
+        public Builder maxCombinedRequests(int value) {
+            this.maxCombinedRequests = value;
+            return this;
+        }
+
+        public Builder combinedExcludePattern(String value) {
+            this.combinedExcludePattern = value == null ? null : Pattern.compile(value);
+            return this;
+        }
+
+        public Builder labelHeader(String value) {
+            this.labelHeader = value;
+            return this;
+        }
+
+        public Builder descriptionHeader(String value) {
+            this.descriptionHeader = value;
+            return this;
+        }
+
+        public Builder fileHeader(String value) {
+            this.fileHeader = value;
+            return this;
+        }
 
         public Builder enabled(boolean value) {
             this.enabled = value;

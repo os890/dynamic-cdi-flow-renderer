@@ -15,43 +15,24 @@
 package org.os890.cdi.uml.dynamic.flow.renderer.extension;
 
 import jakarta.decorator.Decorator;
+import jakarta.enterprise.inject.build.compatible.spi.BuildCompatibleExtension;
 import jakarta.enterprise.inject.spi.AnnotatedType;
 import jakarta.enterprise.inject.spi.Extension;
-import jakarta.enterprise.inject.build.compatible.spi.BuildCompatibleExtension;
 import jakarta.interceptor.Interceptor;
 import org.os890.cdi.uml.dynamic.flow.renderer.api.FlowSink;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Optional;
-import java.util.Set;
 
 /**
- * Decides whether the recorder may be added to a bean-class.
- * <p>
- * Two kinds of types are rejected. The first kind <em>cannot</em> be intercepted - the container
- * builds a subclass for an intercepted bean, so a final class, a final business-method or a
- * class without an accessible constructor would turn into a deployment-error rather than into a
- * diagram. The second kind <em>must not</em> be intercepted - the addon's own classes and the
- * infrastructure of the container itself, because recording the recorder recurses.
+ * Answers {@link InstrumentabilityRules} about a type the portable extension was handed, with the
+ * reflection an already-loaded class allows.
+ *
+ * <p>The rules themselves - and the reasons they give - are shared with the build compatible
+ * extension, which has to answer the same questions from a build-time model instead.
  */
 final class Instrumentability {
-
-    /** the addon's own packages - explicitly listed so that {@code ...renderer.examples} still matches */
-    private static final Set<String> ADDON_PACKAGES = Set.of(
-            "org.os890.cdi.uml.dynamic.flow.renderer.api",
-            "org.os890.cdi.uml.dynamic.flow.renderer.config",
-            "org.os890.cdi.uml.dynamic.flow.renderer.extension",
-            "org.os890.cdi.uml.dynamic.flow.renderer.render",
-            "org.os890.cdi.uml.dynamic.flow.renderer.runtime",
-            "org.os890.cdi.uml.dynamic.flow.renderer.sink");
-
-    private static final String[] INFRASTRUCTURE_PACKAGE_PREFIXES = {
-            "java.", "javax.", "jakarta.", "jdk.", "sun.", "com.sun.",
-            "org.jboss.", "org.apache.webbeans.", "org.apache.geronimo.",
-            "io.smallrye.", "org.eclipse.microprofile.",
-            "org.junit.", "org.assertj.", "org.opentest4j."
-    };
 
     private Instrumentability() {
     }
@@ -64,83 +45,110 @@ final class Instrumentability {
      * @return the reason why the type is not instrumentable, or empty when it is
      */
     static Optional<String> rejectionReason(AnnotatedType<?> type) {
-        Class<?> javaClass = type.getJavaClass();
-
-        if (ADDON_PACKAGES.contains(javaClass.getPackageName())) {
-            return Optional.of("belongs to cdi-flow itself");
-        }
-        for (String prefix : INFRASTRUCTURE_PACKAGE_PREFIXES) {
-            if (javaClass.getName().startsWith(prefix)) {
-                return Optional.of("infrastructure package");
-            }
-        }
-
-        if (javaClass.isInterface() || javaClass.isAnnotation() || javaClass.isEnum()
-                || javaClass.isRecord() || javaClass.isPrimitive() || javaClass.isArray()) {
-            return Optional.of("not a managed bean-class");
-        }
-        if (javaClass.isSynthetic() || javaClass.isAnonymousClass() || javaClass.isLocalClass()
-                || javaClass.isHidden()) {
-            return Optional.of("generated or non-top-level class");
-        }
-        if (javaClass.getEnclosingClass() != null && !Modifier.isStatic(javaClass.getModifiers())) {
-            return Optional.of("non-static inner class");
-        }
-
-        int modifiers = javaClass.getModifiers();
-        if (Modifier.isFinal(modifiers)) {
-            return Optional.of("final class - the container cannot subclass it for interception");
-        }
-        if (Modifier.isAbstract(modifiers)) {
-            return Optional.of("abstract class");
-        }
-        if (!hasAccessibleConstructor(javaClass)) {
-            return Optional.of("no non-private constructor");
-        }
-
-        Method finalBusinessMethod = findFinalBusinessMethod(javaClass);
-        if (finalBusinessMethod != null) {
-            return Optional.of("final business-method '" + finalBusinessMethod.getName() + "'");
-        }
-
-        if (type.isAnnotationPresent(Interceptor.class) || type.isAnnotationPresent(Decorator.class)) {
-            return Optional.of("interceptor or decorator");
-        }
-        if (Extension.class.isAssignableFrom(javaClass)
-                || BuildCompatibleExtension.class.isAssignableFrom(javaClass)) {
-            return Optional.of("CDI extension");
-        }
-        if (FlowSink.class.isAssignableFrom(javaClass)) {
-            return Optional.of("flow-sink");
-        }
-
-        return Optional.empty();
+        return InstrumentabilityRules.rejectionReason(new ReflectiveTypeFacts(type));
     }
 
-    private static boolean hasAccessibleConstructor(Class<?> javaClass) {
-        for (var constructor : javaClass.getDeclaredConstructors()) {
-            if (!Modifier.isPrivate(constructor.getModifiers())) {
-                return true;
-            }
-        }
-        return false;
-    }
+    private static final class ReflectiveTypeFacts implements TypeFacts {
 
-    /**
-     * A class-level interceptor-binding turns every non-static, non-private method into an
-     * intercepted business-method - and a final one of those is rejected by the container.
-     */
-    private static Method findFinalBusinessMethod(Class<?> javaClass) {
-        for (Class<?> current = javaClass; current != null && current != Object.class;
-             current = current.getSuperclass()) {
-            for (Method method : current.getDeclaredMethods()) {
-                int modifiers = method.getModifiers();
-                if (Modifier.isFinal(modifiers) && !Modifier.isStatic(modifiers)
-                        && !Modifier.isPrivate(modifiers) && !method.isBridge() && !method.isSynthetic()) {
-                    return method;
+        private final AnnotatedType<?> type;
+        private final Class<?> javaClass;
+
+        private ReflectiveTypeFacts(AnnotatedType<?> type) {
+            this.type = type;
+            this.javaClass = type.getJavaClass();
+        }
+
+        @Override
+        public String className() {
+            return javaClass.getName();
+        }
+
+        @Override
+        public String packageName() {
+            return javaClass.getPackageName();
+        }
+
+        @Override
+        public Kind kind() {
+            if (javaClass.isAnnotation()) {
+                return Kind.ANNOTATION;
+            }
+            if (javaClass.isInterface()) {
+                return Kind.INTERFACE;
+            }
+            if (javaClass.isEnum()) {
+                return Kind.ENUM;
+            }
+            if (javaClass.isRecord()) {
+                return Kind.RECORD;
+            }
+            if (javaClass.isPrimitive() || javaClass.isArray()) {
+                return Kind.OTHER;
+            }
+            return Kind.CLASS;
+        }
+
+        @Override
+        public boolean isAbstract() {
+            return Modifier.isAbstract(javaClass.getModifiers());
+        }
+
+        @Override
+        public boolean isFinal() {
+            return Modifier.isFinal(javaClass.getModifiers());
+        }
+
+        @Override
+        public boolean isNested() {
+            return javaClass.getEnclosingClass() != null && !Modifier.isStatic(javaClass.getModifiers());
+        }
+
+        @Override
+        public boolean isGenerated() {
+            return javaClass.isSynthetic() || javaClass.isAnonymousClass()
+                    || javaClass.isLocalClass() || javaClass.isHidden();
+        }
+
+        @Override
+        public boolean hasUsableConstructor() {
+            for (var constructor : javaClass.getDeclaredConstructors()) {
+                if (!Modifier.isPrivate(constructor.getModifiers())) {
+                    return true;
                 }
             }
+            return false;
         }
-        return null;
+
+        @Override
+        public Optional<String> finalBusinessMethodName() {
+            for (Class<?> current = javaClass; current != null && current != Object.class;
+                 current = current.getSuperclass()) {
+                for (Method method : current.getDeclaredMethods()) {
+                    int modifiers = method.getModifiers();
+                    if (Modifier.isFinal(modifiers) && !Modifier.isStatic(modifiers)
+                            && !Modifier.isPrivate(modifiers) && !method.isBridge()
+                            && !method.isSynthetic()) {
+                        return Optional.of(method.getName());
+                    }
+                }
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean isInterceptorOrDecorator() {
+            return type.isAnnotationPresent(Interceptor.class) || type.isAnnotationPresent(Decorator.class);
+        }
+
+        @Override
+        public boolean isCdiExtension() {
+            return Extension.class.isAssignableFrom(javaClass)
+                    || BuildCompatibleExtension.class.isAssignableFrom(javaClass);
+        }
+
+        @Override
+        public boolean isFlowSink() {
+            return FlowSink.class.isAssignableFrom(javaClass);
+        }
     }
 }

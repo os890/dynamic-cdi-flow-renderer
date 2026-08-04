@@ -29,11 +29,17 @@ public final class CallFlow {
     private final CallNode root;
     private final String threadName;
     private final FlowConfig config;
+    private final FlowLabel label;
 
     public CallFlow(CallNode root, String threadName, FlowConfig config) {
+        this(root, threadName, config, null);
+    }
+
+    public CallFlow(CallNode root, String threadName, FlowConfig config, FlowLabel label) {
         this.root = root;
         this.threadName = threadName;
         this.config = config;
+        this.label = label;
     }
 
     public CallNode root() {
@@ -42,6 +48,14 @@ public final class CallFlow {
 
     public String threadName() {
         return threadName;
+    }
+
+    /**
+     * @return the use-case this flow was recorded under, or {@code null} when nothing labelled the
+     * thread it started on - see {@link FlowLabel}
+     */
+    public FlowLabel label() {
+        return label;
     }
 
     public FlowConfig config() {
