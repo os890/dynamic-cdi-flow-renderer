@@ -19,8 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.os890.cdi.uml.dynamic.flow.renderer.api.CallFlow;
 import org.os890.cdi.uml.dynamic.flow.renderer.api.FlowLabel;
+import org.os890.cdi.uml.dynamic.flow.renderer.config.DiagramFormat;
 import org.os890.cdi.uml.dynamic.flow.renderer.config.FlowConfig;
 import org.os890.cdi.uml.dynamic.flow.renderer.testsupport.MermaidAssertions;
+import org.os890.cdi.uml.dynamic.flow.renderer.testsupport.PlantUmlAssertions;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -148,6 +150,32 @@ class UseCaseReportSinkTest {
         assertThat(combined).doesNotContain("ContactResource.list").contains("ContactResource.delete");
         //recorded and kept regardless
         assertThat(Files.readString(useCase.resolve("README.md"))).contains("`ContactResource.list`");
+    }
+
+    @Test
+    @DisplayName("the other notation gets the same report, in its own syntax")
+    void plantUml(@TempDir Path tempDir) throws IOException {
+        FlowConfig config = FlowConfig.builder()
+                .outputDirectory(tempDir)
+                .outputFormat(DiagramFormat.PLANTUML)
+                .build();
+        UseCaseReportSink sink = new UseCaseReportSink(config);
+
+        sink.onFlowRecorded(listFlow(config, DELETING));
+        sink.onFlowRecorded(deleteFlow(config, DELETING));
+
+        Path useCase = tempDir.resolve("a-contact-is-deleted");
+        String combined = Files.readString(useCase.resolve("use-case.puml"));
+        PlantUmlAssertions.assertWellFormed(combined);
+        //one group per request, the caller declared once, and no Mermaid left anywhere
+        assertThat(combined.lines().filter(line -> line.strip().startsWith("group ")).count()).isEqualTo(2);
+        assertThat(combined.lines().filter(line -> line.contains("as Caller")).count()).isEqualTo(1);
+        assertThat(combined).doesNotContain("sequenceDiagram", "rect rgb", "->>");
+
+        assertThat(Files.readString(useCase.resolve("README.md"))).contains("`use-case.puml`");
+        assertThat(Files.readString(tempDir.resolve("use-cases.md")))
+                .contains("```plantuml")
+                .doesNotContain("```mermaid");
     }
 
     @Test
