@@ -148,8 +148,69 @@ sequenceDiagram
 | Module | Content |
 |---|---|
 | `dynamic-cdi-flow-renderer` | the extension. Compiled against **the CDI API/SPI only** - it contains no reference to Weld, to OpenWebBeans or to any other implementation. Its only dependencies are `jakarta.enterprise.cdi-api` and - optionally - `microprofile-config-api`, both `provided` |
+| `cdi-flow-lite` | the same recorder, attached while the application is **built**, for a container which resolves its beans then and never runs a portable extension |
+| `cdi-flow-jaxrs` | one request-filter: it reads the use-case a caller names in a header and labels everything recorded during that request with it |
+| `cdi-flow-quarkus` | the Quarkus extension - one dependency, and an application records the use-cases driven through it |
 | `cdi-flow-examples` | aggregator of the example-applications |
 | `cdi-flow-examples-beans` | the example CDI beans and the container-bootstrapping test-support every example reuses. A shared library, not an example - it carries no cdi-flow configuration of its own |
+| `cdi-flow-examples-quarkus-crud` | the drop-in on Quarkus: a CRUD application whose use-cases are recorded while a browser drives them |
+| `cdi-flow-examples-jakarta-crud` | the very same application on Weld SE with RESTEasy, for comparison |
+
+## Recording use-cases, not just calls
+
+A flow ends when its outermost call returns, and a request is an outermost call on a thread of its
+own - so one browser-driven use-case produces a series of flows rather than one. Labelling ties that
+series together:
+
+```ts
+// the whole integration on the test side
+await context.setExtraHTTPHeaders({ 'X-Flow-Label': testInfo.title });
+```
+
+Every flow started while such a request is handled is filed under that use-case, and the addon writes
+what a reviewer actually wants:
+
+```
+<output-directory>/
+├── use-cases.md                    every use-case, with its diagram inline
+└── <the use-case>/
+    ├── use-case.mmd                the whole use-case, one block per request
+    ├── README.md                   the chains it is made of, and how often each occurred
+    └── <EntryPoint>_<method>_….mmd  one file per distinct chain
+```
+
+Identical chains - same participants, same calls, different microseconds - are collapsed to one
+file and counted, because a use-case checks the session before every request and reads the same list
+four times. `cdi-flow.combined-exclude-pattern` keeps a named entry-point out of the combined diagram
+without dropping it from the recording.
+
+One application serves a whole suite this way: no restart per use-case, and nothing to configure per
+test.
+
+**The same demo exists twice**, so that "the same way on either container" is a claim you can check
+rather than take: a CRUD application - same beans, same Angular front-end, same four Playwright
+specs, one `./run.sh` each - on Quarkus and on Weld.
+
+| Example | Stack | Its cdi-flow integration |
+|---|---|---|
+| [`cdi-flow-examples-quarkus-crud`](cdi-flow-examples/cdi-flow-examples-quarkus-crud) | Quarkus, Quinoa | one dependency, two configuration lines, nothing in the sources |
+| [`cdi-flow-examples-jakarta-crud`](cdi-flow-examples/cdi-flow-examples-jakarta-crud) | Weld SE, RESTEasy on Undertow | two dependencies, two configuration lines, and `new FlowLabelFilter()` among the JAX-RS providers |
+
+Driven through both and with the timings normalized away, the combined diagrams are identical for
+three of the four use-cases, line for line. The fourth differs in one line - RESTEasy calls an
+exception-mapper through the raw `ExceptionMapper#toResponse(Throwable)`, Quarkus REST calls the
+typed method - which is the recording being right about two containers that genuinely differ.
+
+### Dropping it into an application
+
+| Container | What it takes |
+|---|---|
+| **Quarkus** | `cdi-flow-quarkus` as a dependency. It attaches the recorder to the beans of *the application archive* while Quarkus builds, registers the label-filter, arms the recorder at startup and collects the observer-methods so events stay events. Records in dev-mode and in tests with no configuration at all; a production build has to say `cdi-flow.enabled=true` in as many words |
+| **Weld, OpenWebBeans** | the jar, as before - the portable extension does the attaching. Add `cdi-flow-jaxrs` for the label-filter if the application serves REST |
+| **Another CDI-Lite container** | `cdi-flow-lite`, whose build compatible extension attaches the binding. Narrow it with `cdi-flow.include-pattern`: without one, every eligible bean the index holds is recorded |
+
+Whatever attaches the binding, the recorder **arms itself on the first call it sees** if nothing armed
+it - which is what makes an integration nothing more than the binding.
 
 ### One example per configuration
 
@@ -560,13 +621,21 @@ the recorder suspends itself while publishing.
 
 ## Tests
 
-`mvn clean install -Pweld` and `-Powb` run the same **203 tests** (114 unit-tests in the addon,
+`mvn clean install -Pweld` and `-Powb` run the same **215 tests** (126 unit-tests in the addon,
 89 integration-tests spread over the example-projects) and both are green.
 
 The addon module tests everything that needs no container: `MermaidSequenceRendererTest`,
 `PlantUmlSequenceRendererTest`, `LoopFolderTest`, `ProxyNamesTest`, `ProxyFrameCollapserTest`,
 `ParticipantNamerTest`, `DiagramFileNamerTest`, `FileFlowSinkTest`, `FlowConfigTest`,
-`DiagramFormatTest`, `StereotypesTest`, `HotspotDetectorTest` and `InstrumentabilityTest`.
+`DiagramFormatTest`, `StereotypesTest`, `HotspotDetectorTest`, `InstrumentabilityTest`,
+`FlowLabelTest` and `UseCaseReportSinkTest` - the last two covering the labelling, the collapsing of
+identical chains, the combined diagram and the generated document.
+
+The Quarkus extension is covered by the example instead of by a test-class of its own: `./run.sh` in
+[`cdi-flow-examples-quarkus-crud`](cdi-flow-examples/cdi-flow-examples-quarkus-crud) is the check
+that a single dependency really is enough, and it exercises the parts no unit-test can - the
+binding attached at build-time, the filter registered by the extension, and the observer-methods
+collected from the index.
 
 Everything that needs a container lives in the example-project whose configuration it belongs to,
 and runs once per CDI implementation:
