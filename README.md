@@ -196,6 +196,9 @@ specs, one `./run.sh` each - on Quarkus and on Weld.
 | [`cdi-flow-examples-quarkus-crud`](cdi-flow-examples/cdi-flow-examples-quarkus-crud) | Quarkus, Quinoa | one dependency, two configuration lines, nothing in the sources |
 | [`cdi-flow-examples-jakarta-crud`](cdi-flow-examples/cdi-flow-examples-jakarta-crud) | Weld SE, RESTEasy on Undertow | two dependencies, two configuration lines, and `new FlowLabelFilter()` among the JAX-RS providers |
 
+Either of them records in the other notation on request - `./run.sh --format plantuml` - and the
+combined diagram of a use-case is stitched in whichever was asked for.
+
 Driven through both and with the timings normalized away, the combined diagrams are identical for
 three of the four use-cases, line for line. The fourth differs in one line - RESTEasy calls an
 exception-mapper through the raw `ExceptionMapper#toResponse(Throwable)`, Quarkus REST calls the

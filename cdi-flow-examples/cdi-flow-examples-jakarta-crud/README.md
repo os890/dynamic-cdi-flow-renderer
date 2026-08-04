@@ -7,6 +7,7 @@ choice, and that what it records does not depend on it.
 
 ```bash
 ./run.sh                      # build, drive the use-cases, and say where the diagrams are
+./run.sh --format plantuml    # the same flows as .puml instead
 open target/flow-diagrams/use-cases.md
 ```
 
