@@ -52,7 +52,7 @@ public class CustomerService {
     public Customer create(Customer customer) {
         validation.check(customer);
         Customer stored = repository.save(new Customer(null, customer.name().strip(),
-                customer.email(), normalize(customer.tagsOrEmpty())));
+                customer.email(), normalize(tagsOf(customer))));
         String customerNumber = customerNumbers.nextFor(stored);
         customerCreated.fire(new CustomerCreated(stored, customerNumber));
         return stored;
@@ -62,12 +62,16 @@ public class CustomerService {
         return repository.find(id).map(existing -> {
             validation.check(customer);
             return repository.save(new Customer(id, customer.name().strip(), customer.email(),
-                    normalize(customer.tagsOrEmpty())));
+                    normalize(tagsOf(customer))));
         });
     }
 
     public boolean delete(long id) {
         return repository.delete(id);
+    }
+
+    private static List<String> tagsOf(Customer customer) {
+        return customer.tags() == null ? List.of() : customer.tags();
     }
 
     /** one call per tag - consecutive identical calls fold into a `loop` block */

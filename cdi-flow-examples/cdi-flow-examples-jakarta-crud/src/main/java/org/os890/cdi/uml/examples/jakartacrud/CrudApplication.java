@@ -14,29 +14,26 @@
 
 package org.os890.cdi.uml.examples.jakartacrud;
 
-import io.undertow.Undertow;
-import io.undertow.server.handlers.resource.PathResourceManager;
-import io.undertow.server.handlers.resource.ResourceHandler;
-import jakarta.enterprise.inject.se.SeContainer;
-import jakarta.enterprise.inject.se.SeContainerInitializer;
-import org.jboss.resteasy.plugins.server.undertow.UndertowJaxrsServer;
+import org.apache.tomee.embedded.Configuration;
+import org.apache.tomee.embedded.Container;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * The application: a CDI container, a JAX-RS layer in front of its beans, and the front-end.
+ * Starts the server and deploys this application into it.
  *
- * <p>This is the whole difference to the Quarkus example. There, one dependency arranges the
- * container, the REST layer, the front-end and the recorder; here they are wired by hand, as a
- * plain Jakarta application does it. The beans, the front-end and the test-suite are the same, and
- * so is what cdi-flow produces from them.
+ * <p>The server is TomEE - Tomcat, OpenWebBeans for CDI, CXF for Jakarta REST, Johnzon for JSON -
+ * embedded so that the example needs no installation. What is deployed is an ordinary web
+ * application: the classpath as its classes, the built Angular bundle as its document-root.
  *
- * <p>About the recorder there is nothing to arrange at all: the portable extension in the addon jar
- * is picked up while the container boots, attaches the recorder to the beans and arms it. The only
- * cdi-flow line anywhere in this application is the label-filter registered in
- * {@link CrudRestApplication}, and only because a JAX-RS provider has to be named somewhere.
+ * <p>There is nothing about recording in here. The portable extension in the addon jar is picked up
+ * by the CDI container of the web application, attaches the recorder to the beans and arms it; the
+ * server finds cdi-flow's request-filter the same way it finds any other provider. The only cdi-flow
+ * lines in this whole application are the two defaults below, and only because a diagram has to be
+ * written somewhere.
  */
 public final class CrudApplication {
 
@@ -45,25 +42,47 @@ public final class CrudApplication {
     private CrudApplication() {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+        configureRecorderDefaults();
+
         int port = port();
-        //not closed on purpose: the container lives as long as the process, and its shutdown-hook
-        //flushes the recorder
-        SeContainer container = SeContainerInitializer.newInstance().initialize();
+        Configuration configuration = new Configuration()
+                .http(port)
+                .dir(Files.createTempDirectory("cdi-flow-crud-").toString());
 
-        UndertowJaxrsServer server = new UndertowJaxrsServer();
-        server.deploy(new CrudRestApplication(container), "/api");
-        frontEnd().ifPresent(directory -> server.addResourcePrefixPath("/",
-                new ResourceHandler(new PathResourceManager(directory))
-                        .setWelcomeFiles("index.html")));
+        try (Container container = new Container(configuration)) {
+            container.deployClasspathAsWebApp("", frontEnd());
+            System.out.printf("cdi-flow CRUD example (Jakarta EE, TomEE %s) on http://localhost:%d%n",
+                    tomeeVersion(), port);
+            container.await();
+        }
+    }
 
-        server.start(Undertow.builder().addHttpListener(port, "0.0.0.0"));
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            server.stop();
-            container.close();
-        }));
+    /**
+     * Where the diagrams go, and the licence header every generated file carries.
+     *
+     * <p>The include-pattern is the one thing a server needs that Quarkus does not.
+     *
+     * <p>As system-properties rather than in {@code META-INF/microprofile-config.properties}, because
+     * this server ships no MicroProfile-Config implementation - the addon then reads system-properties
+     * and environment-variables, which is exactly what it falls back to. Set only when nothing else
+     * says otherwise, so `run.sh --format plantuml` and `--no-title` keep working through the
+     * environment.
+     */
+    private static void configureRecorderDefaults() {
+        setUnlessConfigured("cdi-flow.output-directory", "target/flow-diagrams");
+        //a server has beans of its own - MyFaces, the CDI implementation, the REST layer - and
+        //recording those says nothing about this application. Quarkus knows which beans belong to the
+        //application archive and needs no pattern; a full server does.
+        setUnlessConfigured("cdi-flow.include-pattern", "org\\.os890\\.cdi\\.uml\\.examples\\..*");
+        setUnlessConfigured("cdi-flow.file-header", "Licensed under the Apache License, Version 2.0");
+    }
 
-        System.out.printf("cdi-flow CRUD example (Jakarta) listening on http://localhost:%d%n", port);
+    private static void setUnlessConfigured(String key, String value) {
+        String environmentName = key.toUpperCase().replace('.', '_').replace('-', '_');
+        if (System.getProperty(key) == null && System.getenv(environmentName) == null) {
+            System.setProperty(key, value);
+        }
     }
 
     private static int port() {
@@ -74,16 +93,20 @@ public final class CrudApplication {
     }
 
     /**
-     * The built Angular bundle, if it is there - the build produces it, and a run without it still
-     * serves the API so the failure is obvious rather than mysterious.
+     * The document-root: the built Angular bundle. Without it the API still answers, so a run before
+     * the front-end was built fails visibly rather than mysteriously.
      */
-    private static java.util.Optional<Path> frontEnd() {
+    private static File frontEnd() {
         Path bundle = Paths.get(System.getProperty("crud.webui", "target/webui"));
-        if (Files.isDirectory(bundle)) {
-            return java.util.Optional.of(bundle);
+        if (!Files.isDirectory(bundle)) {
+            System.err.println("the front-end bundle is not at " + bundle.toAbsolutePath()
+                    + " - run `mvn package` first");
         }
-        System.err.println("the front-end bundle is not at " + bundle.toAbsolutePath()
-                + " - run `mvn package` first");
-        return java.util.Optional.empty();
+        return bundle.toFile();
+    }
+
+    private static String tomeeVersion() {
+        String version = Container.class.getPackage().getImplementationVersion();
+        return version == null ? "embedded" : version;
     }
 }

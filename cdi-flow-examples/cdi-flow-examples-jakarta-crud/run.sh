@@ -12,8 +12,8 @@
 # limitations under the License.
 
 #
-# The same script as the Quarkus example has, against the same application on Weld: build, drive the
-# use-cases through a browser, and point at what was recorded.
+# The same script as the Quarkus example has, against the same application on a Jakarta EE server:
+# build, drive the use-cases through a browser, and point at what was recorded.
 #
 #   ./run.sh                          # Mermaid, the default
 #   ./run.sh --format plantuml        # the same recordings in the other notation
