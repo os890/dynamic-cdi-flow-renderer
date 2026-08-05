@@ -611,6 +611,18 @@ booted - or simply make it a CDI bean; the extension picks those up during
 `toMermaid()` / `toPlantUml()` when you want a specific one. Sinks are never recorded themselves:
 the recorder suspends itself while publishing.
 
+A sink which collected several flows can render them as **one** diagram - the same combined
+rendering a use-case directory gets, without a label and without a file:
+
+```java
+String diagram = CombinedFlowDiagram.of(collectedFlows, DiagramFormat.MERMAID, "an order is placed");
+```
+
+One block per flow, in the order handed over, sharing the participant-lanes; `null` as the title
+leaves the title off. Unlike the use-case report it neither collapses identical chains nor caps
+their number - a caller passing the same chain twice gets two blocks, which is what an assertion
+comparing a recording against an expected diagram needs.
+
 ## Known limitations
 
 * **Self-invocation is not recorded.** `this.otherMethod()` never leaves the instance, so no
