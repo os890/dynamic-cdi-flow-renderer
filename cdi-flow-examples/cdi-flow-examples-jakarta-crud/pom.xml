@@ -38,6 +38,9 @@
     </description>
 
     <properties>
+        <!-- an example demonstrates the addon; it is nothing to depend on, so it is not published -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+
         <maven.compiler.release>21</maven.compiler.release>
         <version.tomee>10.1.4</version.tomee>
         <version.openwebbeans.tomee>4.0.3</version.openwebbeans.tomee>

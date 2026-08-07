@@ -37,6 +37,9 @@
     </description>
 
     <properties>
+        <!-- an example demonstrates the addon; it is nothing to depend on, so it is not published -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+
         <quinoa.version>2.8.3</quinoa.version>
         <maven.compiler.release>21</maven.compiler.release>
     </properties>
