@@ -4,6 +4,8 @@ A CRUD application — Quarkus backend, Angular front-end, one process — whose
 through a real browser while it records a sequence diagram of each of them.
 
 ```bash
+mvn -f ../../pom.xml clean install -DskipTests   # once - see below
+
 ./run.sh                      # build, drive the use-cases, and say where the diagrams are
 ./run.sh --format plantuml    # the same flows as .puml instead
 ./run.sh --no-title           # without the use-case as the diagram's title
@@ -12,6 +14,14 @@ open target/flow-diagrams/use-cases.md
 
 That is the whole thing. The script builds, runs the suite and prints a path; everything about
 recording is in the addon.
+
+**The one-off first**: this example is built standalone rather than as part of the reactor, so it
+resolves `cdi-flow-quarkus` from your local repository - and the addon is not released anywhere, so
+nothing puts it there but a build of this repository. Skip that install and the run fails on an
+unresolvable dependency before it ever starts.
+
+Besides a JDK and Maven, `./run.sh` needs **Node.js with pnpm** and the Playwright browsers it
+drives.
 
 ## What the application does for it
 

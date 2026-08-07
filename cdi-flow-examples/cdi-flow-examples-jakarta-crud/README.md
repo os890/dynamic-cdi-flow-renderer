@@ -10,11 +10,21 @@ It exists to show that the addon is used the same way either side of that choice
 records does not depend on it.
 
 ```bash
+mvn -f ../../pom.xml clean install -DskipTests   # once - see below
+
 ./run.sh                      # build, drive the use-cases, and say where the diagrams are
 ./run.sh --format plantuml    # the same flows as .puml instead
 ./run.sh --no-title           # without the use-case as the diagram's title
 open target/flow-diagrams/use-cases.md
 ```
+
+**The one-off first**: this example is built standalone rather than as part of the reactor, so it
+resolves `dynamic-cdi-flow-renderer` and `cdi-flow-jaxrs` from your local repository - and the addon
+is not released anywhere, so nothing puts them there but a build of this repository. Skip that
+install and the run fails on an unresolvable dependency before it ever starts.
+
+Besides a JDK and Maven, `./run.sh` needs **Node.js with pnpm** and the Playwright browsers it
+drives.
 
 ## What this application does for cdi-flow
 

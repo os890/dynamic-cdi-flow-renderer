@@ -273,9 +273,24 @@ in its `api` and `config` sub-packages.
 </dependency>
 ```
 
+> [!IMPORTANT]
+> **This is not released anywhere yet.** `1.0.0-SNAPSHOT` is resolved from your local repository,
+> so the dependency above only works once you have built the project yourself:
+>
+> ```bash
+> git clone https://github.com/os890/dynamic-cdi-flow-renderer.git
+> cd dynamic-cdi-flow-renderer
+> mvn clean install -DskipTests     # leave -DskipTests off to run the suite as well
+> ```
+
 ## Build and run
 
+**What you need:** a JDK and Maven for the addon itself - and, for the two CRUD examples only,
+**Node.js with pnpm** and the Playwright browsers they drive.
+
 ```bash
+mvn clean install             # the addon, the examples, and the whole test-suite
+
 ./run-all-containers.sh       # both containers, keeps the diagrams of both
 
 mvn clean install -Pweld      # Weld 6.0.1.Final   (default profile)
@@ -283,6 +298,11 @@ mvn clean install -Powb       # OpenWebBeans 4.1.0
 
 ls cdi-flow-examples/*/target/flow-diagrams/weld/showcase/
 ```
+
+`mvn install` at the root comes first, and not only for the addon: the two CRUD examples are built
+and run **standalone** by their own `./run.sh`, which resolves `cdi-flow-quarkus` respectively
+`dynamic-cdi-flow-renderer` from the local repository. Without that install they cannot resolve the
+addon at all.
 
 Compiled with `--release 17`, tested on JDK 25. CDI 4.1 (`jakarta.enterprise.cdi-api:4.1.0`).
 
@@ -303,8 +323,10 @@ Writes a `.png` next to every `.mmd` (via the `mermaid-cli` image) and every `.p
 starting a container plus a headless browser, respectively a JVM, per file would cost far more
 than the rendering itself.
 
-Override the defaults with `MERMAID_IMAGE`, `PLANTUML_IMAGE` and `CONTAINER_RUNTIME`
-(e.g. `docker`) if needed.
+This one needs a **container runtime** - `podman` by default. Override the defaults with
+`MERMAID_IMAGE`, `PLANTUML_IMAGE` and `CONTAINER_RUNTIME` (e.g. `docker`) if needed. Nothing else in
+the project renders anything, so a missing runtime costs you the PNGs and nothing more: Mermaid
+renders on GitHub as it is.
 
 ## Configuration
 
