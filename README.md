@@ -155,6 +155,7 @@ sequenceDiagram
 | `cdi-flow-examples-beans` | the example CDI beans and the container-bootstrapping test-support every example reuses. A shared library, not an example - it carries no cdi-flow configuration of its own |
 | `cdi-flow-examples-quarkus-crud` | the drop-in on Quarkus: a CRUD application whose use-cases are recorded while a browser drives them |
 | `cdi-flow-examples-jakarta-crud` | the very same application deployed to a Jakarta EE server (TomEE), for comparison |
+| `skills` | a [Claude Code skill](skills/README.md) teaching the addon to Claude - which module a container needs, how to select beans, how to label a use-case, and how to read the recordings back |
 
 ## Recording use-cases, not just calls
 
