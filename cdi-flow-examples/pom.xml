@@ -45,6 +45,9 @@
     </modules>
 
     <properties>
+        <!-- an example demonstrates the addon; it is nothing to depend on, so it is not published -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+
         <!-- overwritten by the container profiles, shown in the surefire output -->
         <cdi-flow.container>none</cdi-flow.container>
     </properties>

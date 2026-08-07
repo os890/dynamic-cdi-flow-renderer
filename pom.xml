@@ -31,6 +31,8 @@
         triggering one entry-point manually - not for production use.
     </description>
 
+    <url>https://github.com/os890/dynamic-cdi-flow-renderer</url>
+
     <licenses>
         <license>
             <name>The Apache License, Version 2.0</name>
@@ -38,6 +40,26 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+
+    <scm>
+        <connection>scm:git:https://github.com/os890/dynamic-cdi-flow-renderer.git</connection>
+        <developerConnection>scm:git:https://github.com/os890/dynamic-cdi-flow-renderer.git</developerConnection>
+        <url>https://github.com/os890/dynamic-cdi-flow-renderer</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <!--
+        The release-target is a git repository served over GitHub Pages rather than a repository
+        manager which accepts an upload, so `deploy` writes the Maven layout into a checkout of it
+        and that checkout is pushed afterwards. `-Dos890.maven.repo.directory=...` says where it is.
+    -->
+    <distributionManagement>
+        <repository>
+            <id>os890-maven-repo</id>
+            <name>os890 Maven repository (GitHub Pages)</name>
+            <url>file://${os890.maven.repo.directory}</url>
+        </repository>
+    </distributionManagement>
 
     <modules>
         <module>dynamic-cdi-flow-renderer</module>
@@ -75,6 +97,12 @@
         <version.plugin.surefire>3.5.3</version.plugin.surefire>
         <version.plugin.jar>3.4.2</version.plugin.jar>
         <version.plugin.rat>0.18</version.plugin.rat>
+        <version.plugin.release>3.0.1</version.plugin.release>
+        <version.plugin.source>3.3.1</version.plugin.source>
+        <version.plugin.javadoc>3.11.2</version.plugin.javadoc>
+
+        <!-- the checkout of https://github.com/os890/os890-maven-repo a release is written into -->
+        <os890.maven.repo.directory>${user.home}/os890-maven-repo</os890.maven.repo.directory>
     </properties>
 
     <dependencyManagement>
@@ -202,10 +230,38 @@
                     <artifactId>apache-rat-plugin</artifactId>
                     <version>${version.plugin.rat}</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>${version.plugin.source}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${version.plugin.javadoc}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
         <plugins>
+            <plugin>
+                <!--
+                    `release:prepare` tags as v<version> - the format the existing v0.1 and v0.2
+                    tags use - and `release:perform` builds that tag with the release-profile, so
+                    the sources- and javadoc-jars are attached to what is published and to nothing
+                    else.
+                -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>${version.plugin.release}</version>
+                <configuration>
+                    <tagNameFormat>v@{project.version}</tagNameFormat>
+                    <autoVersionSubmodules>true</autoVersionSubmodules>
+                    <releaseProfiles>release</releaseProfiles>
+                    <!-- the examples are demonstrations, and nothing to depend on -->
+                    <goals>deploy</goals>
+                </configuration>
+            </plugin>
             <plugin>
                 <!--
                     Guards the Apache-2.0 headers: a source-file without one fails the build in
@@ -244,4 +300,52 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            Activated by `release:perform` through <releaseProfiles>, so an ordinary build stays as
+            quick as it was: generating javadoc for every `mvn install` would cost far more than it
+            is worth while nothing is being published.
+        -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <configuration>
+                            <!--
+                                The javadoc is written for a reader, not for the doclint: it links
+                                to types of the CDI API which is `provided`, and a missing @param
+                                on a self-explaining setter must not fail a release.
+                            -->
+                            <doclint>none</doclint>
+                            <quiet>true</quiet>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
