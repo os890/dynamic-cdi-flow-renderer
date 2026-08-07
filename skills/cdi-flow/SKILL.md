@@ -132,7 +132,7 @@ Everything is optional.
 | `cdi-flow.group-by-label` | `true` | `false` files a labelled flow as a plain single diagram instead of into a use-case directory |
 | `cdi-flow.report` | `true` | `false` writes the same plain single files and no `use-cases.md` |
 | `cdi-flow.max-combined-requests` | `25` | above this many requests, `use-cases.md` links a use-case's combined diagram instead of inlining it. The recording itself is not capped |
-| `cdi-flow.combined-exclude-pattern` | *(unset)* | keeps a named entry-point out of the combined diagram without dropping it from the recording |
+| `cdi-flow.combined-exclude-pattern` | *(unset)* | regex matched in full against `<EntryPoint>.<method>` (`.*\.list`), keeping that call out of the combined diagram without dropping it from the recording |
 | `cdi-flow.label-header` | `X-Flow-Label` | the header naming the use-case |
 | `cdi-flow.description-header` | `X-Flow-Description` | the header describing it |
 | `cdi-flow.file-header` | *(unset)* | a header line written into every generated file, e.g. a licence notice |

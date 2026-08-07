@@ -339,7 +339,7 @@ These decide what a **labelled** flow turns into; they do not change what is rec
 | `cdi-flow.report` | `true` | `false` writes the same plain single files and no `use-cases.md` |
 | `cdi-flow.title-diagrams` | `true` | `false` leaves the use-case off as the diagram's title, everywhere |
 | `cdi-flow.max-combined-requests` | `25` | above this many requests, `use-cases.md` links a use-case's combined diagram instead of inlining it. What is recorded and written is not capped |
-| `cdi-flow.combined-exclude-pattern` | *(unset)* | regex on the entry-point, keeping it out of the combined diagram without dropping it from the recording |
+| `cdi-flow.combined-exclude-pattern` | *(unset)* | regex matched in full against `<EntryPoint>.<method>` - `.*\.list` say - keeping that call out of the combined diagram without dropping it from the recording |
 
 Environment-variables use the usual mapping: `cdi-flow.output-directory` →
 `CDI_FLOW_OUTPUT_DIRECTORY`.
@@ -676,7 +676,7 @@ comparing a recording against an expected diagram needs.
 
 ## Tests
 
-`mvn clean install -Pweld` and `-Powb` run the same **215 tests** (126 unit-tests in the addon,
+`mvn clean install -Pweld` and `-Powb` run the same **229 tests** (140 unit-tests in the addon,
 89 integration-tests spread over the example-projects) and both are green.
 
 The addon module tests everything that needs no container: `MermaidSequenceRendererTest`,
