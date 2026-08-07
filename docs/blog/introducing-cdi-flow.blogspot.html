@@ -72,30 +72,26 @@
 
 <h2>Why Another Addon?</h2>
 
-<p>You know the picture in the wiki. Six boxes, some arrows, drawn the week the service was designed and quietly wrong ever since — a call that moved, a cache that appeared, an event nobody put on the slide. Nothing tells you it has rotted, because a drawing has no relationship to the code that outgrew it.</p>
+<p>You know the picture in the wiki. Six boxes, some arrows, drawn the week the service was designed and quietly wrong ever since — a call that moved, a cache that appeared, an event nobody put on the slide. Nothing tells you it's rotted, because a drawing has no relationship to the code that outgrew it.</p>
 
-<p>cdi-flow inverts that. While the container boots it applies a recording interceptor to your beans, records every public method call of the resulting call chain, and as soon as the outermost call returns it writes the chain out as a <b>Mermaid</b> or <b>PlantUML</b> sequence diagram. What you get isn't a model of your application. It's a transcript.</p>
+<p>cdi-flow inverts that. While the container boots it applies a recording interceptor to your beans, records every public method call of the resulting chain, and as soon as the outermost call returns writes it out as a <b>Mermaid</b> or <b>PlantUML</b> sequence diagram. What you get isn't a model of your application. It's a transcript.</p>
 
 <figure>
 <!-- Upload docs/blog/images/one-request.png and replace this src -->
 <img src="REPLACE-WITH-BLOGGER-IMAGE-URL-one-request.png" alt="A recorded sequence diagram of one HTTP request: CustomerResource calls CustomerService, which validates, normalizes three tags in a loop, saves, asks for a customer number, and fires an event that the audit observer handles.">
-<figcaption>One recorded request, unedited. The <code>loop 3 times</code> is three tags going through the normalizer, the arrow marked <code>[event]</code> is a CDI event reaching its observer, and every duration is measured rather than estimated.</figcaption>
+<figcaption>One recorded request, unedited. The <code>loop 3 times</code> is three tags going through the normalizer, and <code>[event]</code> is a CDI event reaching its observer.</figcaption>
 </figure>
-
-<p>Nothing in that picture was written by a human. It's one file, produced by making one HTTP request against an application that has cdi-flow on its class path.</p>
 
 <div class="disclaimer">
 <span class="disclaimer-title">This is a development tool</span>
-Recording every public call of every bean means an interceptor on every bean and a file per outermost call. That's right for exercising one part of an application and entirely unsuitable for a production workload. If it ever lands on a production class path, switch it off there with <code>cdi-flow.enabled=false</code>.
+An interceptor on every bean and a file per outermost call is right for exercising one part of an application and unsuitable for a production workload. If it ever lands on a production class path, switch it off with <code>cdi-flow.enabled=false</code>.
 </div>
 
 <h2>What You Get</h2>
 
 <ul>
 <li><b>A diagram per outermost call</b> — Mermaid or PlantUML, written as the call returns</li>
-<li><b>Loops folded</b> — repeated identical calls collapse into a <code>loop N times</code> block, sub-tree included</li>
-<li><b>CDI events</b> — synchronous observers belong to the same chain and get their own arrow</li>
-<li><b>Exceptions</b> — marked on every frame they travelled through, and the diagram is still written</li>
+<li><b>The awkward bits handled</b> — repeated calls folded into a <code>loop N times</code> block, CDI events drawn with their own arrow, exceptions marked on every frame they travelled through</li>
 <li><b>Clean names</b> — proxies and interceptor subclasses never reach the diagram, so you see the classes you wrote</li>
 <li><b>Hotspots</b> — a marker on the call that is actually slow, not on everything containing it</li>
 <li><b>Whole use cases</b> — a series of HTTP requests collected into one diagram and one Markdown document</li>
@@ -103,7 +99,7 @@ Recording every public call of every bean means an interceptor on every bean and
 
 <h2>Quick Start</h2>
 
-<p>The artifacts are not on Maven Central. They live in a plain Maven repository served over GitHub Pages, so you declare it once — no credentials, nothing in your <code>settings.xml</code>:</p>
+<p>The artifacts are not on Maven Central — they live in a plain Maven repository served over GitHub Pages, so you declare it once:</p>
 
 <pre><code>&lt;repositories&gt;
     &lt;repository&gt;
@@ -112,7 +108,7 @@ Recording every public call of every bean means an interceptor on every bean and
     &lt;/repository&gt;
 &lt;/repositories&gt;</code></pre>
 
-<p>Then the dependency. For <b>Weld, OpenWebBeans or any full CDI container</b> it's the jar and nothing else — the portable extension does the rest while the container boots:</p>
+<p>Then the dependency. For <b>Weld, OpenWebBeans or any full CDI container</b> it's the jar and nothing else:</p>
 
 <pre><code>&lt;dependency&gt;
     &lt;groupId&gt;org.os890.cdi.uml&lt;/groupId&gt;
@@ -122,12 +118,12 @@ Recording every public call of every bean means an interceptor on every bean and
 
 <p><b>Quarkus</b> resolves its beans while it <i>builds</i> the application and never runs a portable extension, so it gets <code>cdi-flow-quarkus</code> instead — same coordinates, same version. It records in dev mode and in tests with no configuration; a production build records nothing unless you write <code>cdi-flow.enabled=true</code> down explicitly, which is the point.</p>
 
-<p>Two properties are worth setting. The default output directory is the temp directory, and on a full Jakarta EE server you'll want to say which beans are yours — the container there also holds the REST layer and the CDI implementation, and recording those tells you nothing:</p>
+<p>Two properties are worth setting. Diagrams default to the temp directory, and on a full Jakarta EE server you'll want to say which beans are yours — the container there also holds the REST layer and the CDI implementation:</p>
 
 <pre><code>cdi-flow.output-directory=target/flow-diagrams
 cdi-flow.include-pattern=com\\.acme\\.order\\..*</code></pre>
 
-<p>Then trigger one entry point — from a test, or by hand — and read the file. That's the whole setup.</p>
+<p>Then trigger one entry point and read the file. That's the whole setup.</p>
 
 <h2>Recording Use Cases, Not Just Calls</h2>
 
@@ -135,20 +131,20 @@ cdi-flow.include-pattern=com\\.acme\\.order\\..*</code></pre>
 
 <pre><code>await context.setExtraHTTPHeaders({ 'X-Flow-Label': testInfo.title });</code></pre>
 
-<p>Every flow recorded while that request is handled is filed under that use case. In process, <code>FlowLabel.set("an order is placed")</code> does the same thing.</p>
+<p>Every flow recorded while that request is handled is filed under that use case; in process, <code>FlowLabel.set("an order is placed")</code> does the same.</p>
 
 <figure>
 <!-- Upload docs/blog/images/one-use-case.png and replace this src -->
 <img src="REPLACE-WITH-BLOGGER-IMAGE-URL-one-use-case.png" alt="A combined diagram of one use case: several requests as separate blocks sharing the same participant lanes.">
-<figcaption>One use case, several requests, one diagram — each block an outermost call, all of them sharing the participant lanes.</figcaption>
+<figcaption>One use case, several requests, one diagram — each block an outermost call, sharing the participant lanes.</figcaption>
 </figure>
 
-<p>What lands on disk is a small report rather than a pile of files: a <code>use-cases.md</code> with every use case and its diagram inline, and a directory per use case holding the combined diagram, the chains it is made of, and how often each occurred. Identical chains are collapsed and counted, because a use case that checks the session before every request reads the same list four times and you don't want to see it four times.</p>
+<p>What lands on disk is a small report rather than a pile of files: a <code>use-cases.md</code> with every use case and its diagram inline, plus a directory each holding the combined diagram and the chains it's made of. Identical chains are collapsed and counted — a use case that checks the session before every request reads the same list four times.</p>
 
 <figure>
 <!-- Upload docs/blog/images/a-refusal.png and replace this src -->
 <img src="REPLACE-WITH-BLOGGER-IMAGE-URL-a-refusal.png" alt="A recorded diagram of a refused request: validation throws, and the exception is marked on every frame it travelled through before the mapper turns it into a response.">
-<figcaption>A refusal. The exception is marked on every frame it passed, and the diagram is still written — so you can see how far the chain got before it failed.</figcaption>
+<figcaption>A refusal. The exception is marked on every frame it passed, and the diagram is still written.</figcaption>
 </figure>
 
 <h2>Two Runtimes, One Recording</h2>
@@ -157,7 +153,7 @@ cdi-flow.include-pattern=com\\.acme\\.order\\..*</code></pre>
 
 <h2>A Recording Is Data, Not Only a Picture</h2>
 
-<p>Everything above ends in a file you look at. But the diagram is rendered <i>from</i> a recorded model, and that model is available before anything is rendered. Implement one method and every finished call chain is handed to you:</p>
+<p>Everything above ends in a file you look at. But the diagram is rendered <i>from</i> a recorded model, and that model is available first. Implement one method and every finished call chain is handed to you:</p>
 
 <pre><code>public interface FlowSink {
     void onFlowRecorded(CallFlow flow);
@@ -169,7 +165,7 @@ cdi-flow.include-pattern=com\\.acme\\.order\\..*</code></pre>
 
 <h2>Turning a Recording Into an Assertion</h2>
 
-<p>That's what jawelte's <code>flow-assert-module</code> does — the part of the "more on jawelte soon" I promised. jawelte is a separate project, a modular test framework for CDI applications, and this module is a consumer of cdi-flow rather than part of it. It records the call flow of a test method and compares it against a diagram checked in beside the test:</p>
+<p>That's what jawelte's <code>flow-assert-module</code> does — the "more on jawelte" I promised. jawelte is a separate project, a test framework for CDI applications, and this module consumes cdi-flow rather than being part of it. It records the flow of a test method and compares it against a diagram checked in beside the test:</p>
 
 <pre><code>@EnableFlowAssert
 class OrderServiceFlowTest {
@@ -184,42 +180,28 @@ class OrderServiceFlowTest {
     }
 }</code></pre>
 
-<p>An ordinary test pins what a call <i>returned</i>. This pins <b>how it got there</b> — which bean called which, in what order, how deep, what came back, which events fired. Delete a call, reorder two, route one through a different collaborator, and the diff is the failure:</p>
+<p>An ordinary test pins what a call <i>returned</i>. This pins <b>how it got there</b>. Reorder two calls or route one through a different collaborator and the failure names the step that moved. Durations, timestamps and thread names are rendered but never compared — compare them and the test is flaky by construction.</p>
 
-<pre><code>Flow diff found 2 difference(s) against flows/order-placement.mmd (mermaid):
-  [chain 1, expected line 11] DIFFERENT_TARGET
-        expected: OrderService -&gt; PricingService: priceOf(String)
-          actual: OrderService -&gt; DiscountService: priceOf(String)
-  [chain 1, expected line 16] MISSING_CALL
-        expected: OrderService -&gt; AuditService: log(String)
-          actual: &lt;missing&gt;</code></pre>
-
-<p>The interesting design decision is what it refuses to compare. Durations, timestamps, thread names and hotspot markers are <i>rendered</i>, so the checked-in file stays readable — but they are never compared, because they differ on every run. Compare them and the test is flaky by construction. What is compared is the structure: participants, calls, returned and thrown types, event arrows, loop counts, nesting depth, and the number and order of chains.</p>
-
-<p>It will write the first expected file for you, and the run that writes it still <b>fails</b>, with the diagram in the message. An approval nobody looked at is not an assertion.</p>
-
-<p>For cdi-flow the module is the useful kind of proof: it consumes the recorder through those two published entry points and nothing else — no fork, no reflection into internals, no copy of the renderer. And because the dialects render <i>through</i> the recorder, a <code>use-case.mmd</code> copied out of a real application run is a valid expected file.</p>
+<p>For cdi-flow it's the useful kind of proof: the module consumes the recorder through <code>FlowSink</code> and <code>CombinedFlowDiagram</code> and nothing else — no fork, no reflection into internals.</p>
 
 <h2>What It Does Not Do</h2>
 
 <ul>
 <li><b>Self-invocation is not recorded</b> — <code>this.other()</code> never leaves the instance, so no interceptor sees it. Inherent to interceptor-based recording, not a bug</li>
 <li><b>A flow does not cross threads</b> — each thread records its own, so an asynchronous observer gets a diagram of its own</li>
-<li><b>Only public methods</b> are recorded, and never <code>Object</code>'s own</li>
-<li><b>Beans from producer methods are not managed beans</b>, so the container never intercepts them; the producer method itself is recorded</li>
-<li><b>A bean the container can't subclass is skipped</b> — silently and on purpose, since adding the binding anyway would turn a working deployment into one that refuses to start</li>
+<li><b>Only public methods</b> are recorded, and beans from producer methods are not managed beans, so the container never intercepts them</li>
 <li><b>Argument values are never recorded</b> — only parameter types, so no application data ends up in the files</li>
 </ul>
 
-<p>The addon is compiled against the CDI API and SPI only, with no reference to Weld, OpenWebBeans or any other implementation. Published at <code>0.9.0</code> with sources and javadoc: <code>dynamic-cdi-flow-renderer</code>, <code>cdi-flow-quarkus</code>, <code>cdi-flow-jaxrs</code> for the use-case header, and <code>cdi-flow-lite</code> for CDI-Lite containers.</p>
+<p>The addon is compiled against the CDI API and SPI only. Published at <code>0.9.0</code> with sources and javadoc: <code>dynamic-cdi-flow-renderer</code>, <code>cdi-flow-quarkus</code>, <code>cdi-flow-jaxrs</code> for the use-case header, and <code>cdi-flow-lite</code> for CDI-Lite containers.</p>
 
 <h2>AI-Assisted Development</h2>
 
 <p>Like the <a href="https://os890-ai.blogspot.com/2026/04/dynamic-cdi-test-bean-addon-first-os890.html" target="_blank">Dynamic CDI Test Bean Addon</a> and the <a href="https://os890-ai.blogspot.com/2026/04/microprofile-dashboard-addon.html" target="_blank">MicroProfile Dashboard Addon</a>, this was developed with an AI co-pilot — every authored commit carries the co-author trailer, the exceptions being the initial commit and the two the release plugin writes itself. Five days from the first commit to the <code>0.9.0</code> tag, across roughly 170 Java files and 229 tests that run against Weld and OpenWebBeans in turn.</p>
 
-<p>Two things made the workflow work better than usual here. The output is checkable: a recorded diagram either parses and balances its activation blocks or it doesn't, and every diagram the suite produces is validated that way — so an agent iterates against something firmer than my reading of the code. And the two demo applications turned "does this behave portably" from a claim into a test, which caught real differences while the extension was being written rather than after someone deployed it.</p>
+<p>Two things made the workflow work better than usual. The output is checkable — a recorded diagram either parses and balances its activation blocks or it doesn't, so an agent iterates against something firmer than my reading of the code. And the two demo applications turned "does this behave portably" from a claim into a test.</p>
 
-<p>The repository also ships a <code>SKILL.md</code>, same idea as the Test Bean addon: drop it into <code>~/.claude/skills/</code> and the assistant knows which module a container needs and how to narrow what is recorded. The <a href="https://os890-ai.blogspot.com/2026/04/hardening-claude-code-security-hooks.html" target="_blank">security hooks</a> were in force throughout — the demos build an Angular front end, so package installs happen on every run.</p>
+<p>It also ships a <code>SKILL.md</code>, same idea as the Test Bean addon: drop it into <code>~/.claude/skills/</code> and the assistant knows which module a container needs and how to narrow what is recorded. The <a href="https://os890-ai.blogspot.com/2026/04/hardening-claude-code-security-hooks.html" target="_blank">security hooks</a> were in force throughout.</p>
 
 <h2>Links</h2>
 
