@@ -29,20 +29,37 @@ happened, including the ones going through proxies, events and exception paths.
 | **Weld, OpenWebBeans, a Jakarta EE server** | `dynamic-cdi-flow-renderer` | the portable extension does the attaching. Add `cdi-flow-jaxrs` too if the application serves REST and use-cases should be labelled per request |
 | **Another CDI-Lite container** | `cdi-flow-lite` | a build compatible extension attaches the binding at build time |
 
+The artifacts are **not on Maven Central**. They are served from GitHub Pages, so the repository has
+to be declared once - no credentials, nothing in `settings.xml`. Add **both** of these, or the
+dependency will not resolve:
+
 ```xml
-<dependency>
-    <groupId>org.os890.cdi.uml</groupId>
-    <artifactId>dynamic-cdi-flow-renderer</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-</dependency>
+<repositories>
+    <repository>
+        <id>os890</id>
+        <url>https://os890.github.io/os890-maven-repo/</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>org.os890.cdi.uml</groupId>
+        <artifactId>dynamic-cdi-flow-renderer</artifactId>
+        <version>0.9.0</version>
+    </dependency>
+</dependencies>
 ```
+
+Current version: **0.9.0**. Sources- and javadoc-jars are published with it.
 
 Only `jakarta.enterprise.cdi-api` and - optionally - `microprofile-config-api` are needed, both
 `provided`. The addon references no CDI implementation.
 
 ## Setting it up in a project
 
-1. **Add the dependency** for the container above. Scope it to `test` when only tests should record.
+1. **Add the repository and the dependency** for the container above - the repository is not
+   optional, the artifacts are nowhere else. Scope the dependency to `test` when only tests should
+   record.
 2. **Narrow what is recorded.** On a full Jakarta EE server this is the step that matters: the
    server has beans of its own (the REST layer, the CDI implementation, JSF) and recording those
    says nothing about the application. Set an include-pattern on the application packages:

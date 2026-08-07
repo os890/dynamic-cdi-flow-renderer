@@ -265,23 +265,38 @@ single values through system-properties - ordinary MicroProfile-Config precedenc
 The base package is `org.os890.cdi.uml.dynamic.flow.renderer`; the application-facing types live
 in its `api` and `config` sub-packages.
 
+The released artifacts are **not on Maven Central**; they are served from
+[`os890-maven-repo`](https://github.com/os890/os890-maven-repo) over GitHub Pages. Add that
+repository once - no credentials, nothing in `settings.xml`:
+
 ```xml
-<dependency>
-    <groupId>org.os890.cdi.uml</groupId>
-    <artifactId>dynamic-cdi-flow-renderer</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-</dependency>
+<repositories>
+    <repository>
+        <id>os890</id>
+        <url>https://os890.github.io/os890-maven-repo/</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>org.os890.cdi.uml</groupId>
+        <artifactId>dynamic-cdi-flow-renderer</artifactId>
+        <version>0.9.0</version>
+    </dependency>
+</dependencies>
 ```
 
-> [!IMPORTANT]
-> **This is not released anywhere yet.** `1.0.0-SNAPSHOT` is resolved from your local repository,
-> so the dependency above only works once you have built the project yourself:
->
-> ```bash
-> git clone https://github.com/os890/dynamic-cdi-flow-renderer.git
-> cd dynamic-cdi-flow-renderer
-> mvn clean install -DskipTests     # leave -DskipTests off to run the suite as well
-> ```
+On Quarkus it is `cdi-flow-quarkus` instead, and that one dependency is the whole integration.
+Sources- and javadoc-jars are published alongside, so an IDE can step into the addon.
+
+Building the project yourself is for **working on it** rather than for using it, and gets you
+`1.0.0-SNAPSHOT` from your local repository:
+
+```bash
+git clone https://github.com/os890/dynamic-cdi-flow-renderer.git
+cd dynamic-cdi-flow-renderer
+mvn clean install -DskipTests     # leave -DskipTests off to run the suite as well
+```
 
 ## Build and run
 
