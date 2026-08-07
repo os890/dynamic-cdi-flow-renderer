@@ -291,6 +291,8 @@
                         <exclude>**/pnpm-lock.yaml</exclude>
                         <!-- a list of class-names Quarkus reads; no comment syntax -->
                         <exclude>**/quarkus-build-steps.list</exclude>
+                        <!-- generated diagram images, e.g. the ones the blog-post shows -->
+                        <exclude>**/*.png</exclude>
                         <exclude>**/node_modules/**</exclude>
                         <exclude>**/dist/**</exclude>
                     </excludes>
