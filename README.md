@@ -168,8 +168,25 @@ series together:
 await context.setExtraHTTPHeaders({ 'X-Flow-Label': testInfo.title });
 ```
 
-Every flow started while such a request is handled is filed under that use-case, and the addon writes
-what a reviewer actually wants:
+Every flow started while such a request is handled is filed under that use-case. The header is read
+by `cdi-flow-jaxrs` - and by the Quarkus extension, which registers that filter itself.
+
+Nothing needs to be an HTTP request, though. A test or a `main` naming the use-case in process gets
+the same grouping, which is the whole of the API:
+
+```java
+FlowLabel.set("an order is placed");   // FlowLabel.set(name, description) for a description as well
+try {
+    orderService.placeOrder("ACME-1", 3);
+} finally {
+    FlowLabel.clear();
+}
+```
+
+The label is held per thread and read when a flow **starts**, not when it is published - so a flow
+that outlives the label, an asynchronous observer say, keeps the one it began with.
+
+Either way, the addon writes what a reviewer actually wants:
 
 ```
 <output-directory>/
@@ -307,6 +324,22 @@ MicroProfile-Config dependency is genuinely optional.
 | `cdi-flow.fold-loops` | `true` | render repeated identical calls as a `loop N times` block |
 | `cdi-flow.collapse-proxy-frames` | `true` | safety-net against duplicated frames (see below) |
 | `cdi-flow.write-files` | `true` | `false` records into registered sinks only |
+| `cdi-flow.file-header` | *(unset)* | a line put in front of every generated file as a comment of the notation in use - a licence header, so a build insisting on one needs no exclusion |
+
+### Use-cases and the report
+
+These decide what a **labelled** flow turns into; they do not change what is recorded. See
+[Recording use-cases](#recording-use-cases-not-just-calls).
+
+| Property | Default | Meaning |
+|---|---|---|
+| `cdi-flow.label-header` | `X-Flow-Label` | the request-header naming the use-case, read by `cdi-flow-jaxrs` |
+| `cdi-flow.description-header` | `X-Flow-Description` | the request-header describing it |
+| `cdi-flow.group-by-label` | `true` | `false` files a labelled flow as a plain single diagram, exactly like an unlabelled one, instead of into a use-case directory |
+| `cdi-flow.report` | `true` | `false` writes the same plain single files and no `use-cases.md` |
+| `cdi-flow.title-diagrams` | `true` | `false` leaves the use-case off as the diagram's title, everywhere |
+| `cdi-flow.max-combined-requests` | `25` | above this many requests, `use-cases.md` links a use-case's combined diagram instead of inlining it. What is recorded and written is not capped |
+| `cdi-flow.combined-exclude-pattern` | *(unset)* | regex on the entry-point, keeping it out of the combined diagram without dropping it from the recording |
 
 Environment-variables use the usual mapping: `cdi-flow.output-directory` →
 `CDI_FLOW_OUTPUT_DIRECTORY`.
@@ -650,8 +683,9 @@ The addon module tests everything that needs no container: `MermaidSequenceRende
 `PlantUmlSequenceRendererTest`, `LoopFolderTest`, `ProxyNamesTest`, `ProxyFrameCollapserTest`,
 `ParticipantNamerTest`, `DiagramFileNamerTest`, `FileFlowSinkTest`, `FlowConfigTest`,
 `DiagramFormatTest`, `StereotypesTest`, `HotspotDetectorTest`, `InstrumentabilityTest`,
-`FlowLabelTest` and `UseCaseReportSinkTest` - the last two covering the labelling, the collapsing of
-identical chains, the combined diagram and the generated document.
+`FlowLabelTest`, `UseCaseReportSinkTest`, `CombinedFlowDiagramTest` and `DiagramWriterTest` - the
+four last covering the labelling, the collapsing of identical chains, the combined diagram and the
+generated document, the combined rendering handed to a caller, and the configured file-header.
 
 The Quarkus extension is covered by the example instead of by a test-class of its own: `./run.sh` in
 [`cdi-flow-examples-quarkus-crud`](cdi-flow-examples/cdi-flow-examples-quarkus-crud) is the check

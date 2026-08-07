@@ -129,9 +129,9 @@ Everything is optional.
 | `cdi-flow.collapse-proxy-frames` | `true` | safety-net against duplicated proxy frames |
 | `cdi-flow.write-files` | `true` | `false` records into registered sinks only |
 | `cdi-flow.title-diagrams` | `true` | `false` leaves the use-case title off every diagram |
-| `cdi-flow.group-by-label` | `true` | `false` writes single files even for labelled flows |
-| `cdi-flow.report` | `true` | `false` skips `use-cases.md` and the per-use-case `README.md` |
-| `cdi-flow.max-combined-requests` | `25` | cap on the blocks stitched into one combined diagram |
+| `cdi-flow.group-by-label` | `true` | `false` files a labelled flow as a plain single diagram instead of into a use-case directory |
+| `cdi-flow.report` | `true` | `false` writes the same plain single files and no `use-cases.md` |
+| `cdi-flow.max-combined-requests` | `25` | above this many requests, `use-cases.md` links a use-case's combined diagram instead of inlining it. The recording itself is not capped |
 | `cdi-flow.combined-exclude-pattern` | *(unset)* | keeps a named entry-point out of the combined diagram without dropping it from the recording |
 | `cdi-flow.label-header` | `X-Flow-Label` | the header naming the use-case |
 | `cdi-flow.description-header` | `X-Flow-Description` | the header describing it |
