@@ -155,6 +155,7 @@ sequenceDiagram
 | `cdi-flow-examples-beans` | the example CDI beans and the container-bootstrapping test-support every example reuses. A shared library, not an example - it carries no cdi-flow configuration of its own |
 | `cdi-flow-examples-quarkus-crud` | the drop-in on Quarkus: a CRUD application whose use-cases are recorded while a browser drives them |
 | `cdi-flow-examples-jakarta-crud` | the very same application deployed to a Jakarta EE server (TomEE), for comparison |
+| `skills` | a [Claude Code skill](skills/README.md) teaching the addon to Claude - which module a container needs, how to select beans, how to label a use-case, and how to read the recordings back |
 
 ## Recording use-cases, not just calls
 
@@ -167,8 +168,25 @@ series together:
 await context.setExtraHTTPHeaders({ 'X-Flow-Label': testInfo.title });
 ```
 
-Every flow started while such a request is handled is filed under that use-case, and the addon writes
-what a reviewer actually wants:
+Every flow started while such a request is handled is filed under that use-case. The header is read
+by `cdi-flow-jaxrs` - and by the Quarkus extension, which registers that filter itself.
+
+Nothing needs to be an HTTP request, though. A test or a `main` naming the use-case in process gets
+the same grouping, which is the whole of the API:
+
+```java
+FlowLabel.set("an order is placed");   // FlowLabel.set(name, description) for a description as well
+try {
+    orderService.placeOrder("ACME-1", 3);
+} finally {
+    FlowLabel.clear();
+}
+```
+
+The label is held per thread and read when a flow **starts**, not when it is published - so a flow
+that outlives the label, an asynchronous observer say, keeps the one it began with.
+
+Either way, the addon writes what a reviewer actually wants:
 
 ```
 <output-directory>/
@@ -255,9 +273,24 @@ in its `api` and `config` sub-packages.
 </dependency>
 ```
 
+> [!IMPORTANT]
+> **This is not released anywhere yet.** `1.0.0-SNAPSHOT` is resolved from your local repository,
+> so the dependency above only works once you have built the project yourself:
+>
+> ```bash
+> git clone https://github.com/os890/dynamic-cdi-flow-renderer.git
+> cd dynamic-cdi-flow-renderer
+> mvn clean install -DskipTests     # leave -DskipTests off to run the suite as well
+> ```
+
 ## Build and run
 
+**What you need:** a JDK and Maven for the addon itself - and, for the two CRUD examples only,
+**Node.js with pnpm** and the Playwright browsers they drive.
+
 ```bash
+mvn clean install             # the addon, the examples, and the whole test-suite
+
 ./run-all-containers.sh       # both containers, keeps the diagrams of both
 
 mvn clean install -Pweld      # Weld 6.0.1.Final   (default profile)
@@ -265,6 +298,11 @@ mvn clean install -Powb       # OpenWebBeans 4.1.0
 
 ls cdi-flow-examples/*/target/flow-diagrams/weld/showcase/
 ```
+
+`mvn install` at the root comes first, and not only for the addon: the two CRUD examples are built
+and run **standalone** by their own `./run.sh`, which resolves `cdi-flow-quarkus` respectively
+`dynamic-cdi-flow-renderer` from the local repository. Without that install they cannot resolve the
+addon at all.
 
 Compiled with `--release 17`, tested on JDK 25. CDI 4.1 (`jakarta.enterprise.cdi-api:4.1.0`).
 
@@ -285,8 +323,10 @@ Writes a `.png` next to every `.mmd` (via the `mermaid-cli` image) and every `.p
 starting a container plus a headless browser, respectively a JVM, per file would cost far more
 than the rendering itself.
 
-Override the defaults with `MERMAID_IMAGE`, `PLANTUML_IMAGE` and `CONTAINER_RUNTIME`
-(e.g. `docker`) if needed.
+This one needs a **container runtime** - `podman` by default. Override the defaults with
+`MERMAID_IMAGE`, `PLANTUML_IMAGE` and `CONTAINER_RUNTIME` (e.g. `docker`) if needed. Nothing else in
+the project renders anything, so a missing runtime costs you the PNGs and nothing more: Mermaid
+renders on GitHub as it is.
 
 ## Configuration
 
@@ -306,6 +346,22 @@ MicroProfile-Config dependency is genuinely optional.
 | `cdi-flow.fold-loops` | `true` | render repeated identical calls as a `loop N times` block |
 | `cdi-flow.collapse-proxy-frames` | `true` | safety-net against duplicated frames (see below) |
 | `cdi-flow.write-files` | `true` | `false` records into registered sinks only |
+| `cdi-flow.file-header` | *(unset)* | a line put in front of every generated file as a comment of the notation in use - a licence header, so a build insisting on one needs no exclusion |
+
+### Use-cases and the report
+
+These decide what a **labelled** flow turns into; they do not change what is recorded. See
+[Recording use-cases](#recording-use-cases-not-just-calls).
+
+| Property | Default | Meaning |
+|---|---|---|
+| `cdi-flow.label-header` | `X-Flow-Label` | the request-header naming the use-case, read by `cdi-flow-jaxrs` |
+| `cdi-flow.description-header` | `X-Flow-Description` | the request-header describing it |
+| `cdi-flow.group-by-label` | `true` | `false` files a labelled flow as a plain single diagram, exactly like an unlabelled one, instead of into a use-case directory |
+| `cdi-flow.report` | `true` | `false` writes the same plain single files and no `use-cases.md` |
+| `cdi-flow.title-diagrams` | `true` | `false` leaves the use-case off as the diagram's title, everywhere |
+| `cdi-flow.max-combined-requests` | `25` | above this many requests, `use-cases.md` links a use-case's combined diagram instead of inlining it. What is recorded and written is not capped |
+| `cdi-flow.combined-exclude-pattern` | *(unset)* | regex matched in full against `<EntryPoint>.<method>` - `.*\.list` say - keeping that call out of the combined diagram without dropping it from the recording |
 
 Environment-variables use the usual mapping: `cdi-flow.output-directory` →
 `CDI_FLOW_OUTPUT_DIRECTORY`.
@@ -642,15 +698,16 @@ comparing a recording against an expected diagram needs.
 
 ## Tests
 
-`mvn clean install -Pweld` and `-Powb` run the same **215 tests** (126 unit-tests in the addon,
+`mvn clean install -Pweld` and `-Powb` run the same **229 tests** (140 unit-tests in the addon,
 89 integration-tests spread over the example-projects) and both are green.
 
 The addon module tests everything that needs no container: `MermaidSequenceRendererTest`,
 `PlantUmlSequenceRendererTest`, `LoopFolderTest`, `ProxyNamesTest`, `ProxyFrameCollapserTest`,
 `ParticipantNamerTest`, `DiagramFileNamerTest`, `FileFlowSinkTest`, `FlowConfigTest`,
 `DiagramFormatTest`, `StereotypesTest`, `HotspotDetectorTest`, `InstrumentabilityTest`,
-`FlowLabelTest` and `UseCaseReportSinkTest` - the last two covering the labelling, the collapsing of
-identical chains, the combined diagram and the generated document.
+`FlowLabelTest`, `UseCaseReportSinkTest`, `CombinedFlowDiagramTest` and `DiagramWriterTest` - the
+four last covering the labelling, the collapsing of identical chains, the combined diagram and the
+generated document, the combined rendering handed to a caller, and the configured file-header.
 
 The Quarkus extension is covered by the example instead of by a test-class of its own: `./run.sh` in
 [`cdi-flow-examples-quarkus-crud`](cdi-flow-examples/cdi-flow-examples-quarkus-crud) is the check
