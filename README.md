@@ -265,23 +265,64 @@ single values through system-properties - ordinary MicroProfile-Config precedenc
 The base package is `org.os890.cdi.uml.dynamic.flow.renderer`; the application-facing types live
 in its `api` and `config` sub-packages.
 
+The released artifacts are **not on Maven Central**; they are served from
+[`os890-maven-repo`](https://github.com/os890/os890-maven-repo) over GitHub Pages. Add that
+repository once - no credentials, nothing in `settings.xml`:
+
 ```xml
-<dependency>
-    <groupId>org.os890.cdi.uml</groupId>
-    <artifactId>dynamic-cdi-flow-renderer</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-</dependency>
+<repositories>
+    <repository>
+        <id>os890</id>
+        <url>https://os890.github.io/os890-maven-repo/</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>org.os890.cdi.uml</groupId>
+        <artifactId>dynamic-cdi-flow-renderer</artifactId>
+        <version>0.9.0</version>
+    </dependency>
+</dependencies>
 ```
 
-> [!IMPORTANT]
-> **This is not released anywhere yet.** `1.0.0-SNAPSHOT` is resolved from your local repository,
-> so the dependency above only works once you have built the project yourself:
->
-> ```bash
-> git clone https://github.com/os890/dynamic-cdi-flow-renderer.git
-> cd dynamic-cdi-flow-renderer
-> mvn clean install -DskipTests     # leave -DskipTests off to run the suite as well
-> ```
+On Quarkus it is `cdi-flow-quarkus` instead, and that one dependency is the whole integration.
+Sources- and javadoc-jars are published alongside, so an IDE can step into the addon.
+
+### Verifying a download
+
+Maven checks the `.sha1` next to every artifact while it resolves, and refuses one that does not
+match. That guards against a truncated download rather than against the repository itself, because
+a checksum served from the same place as the file it describes is only worth as much as that place.
+The digests below come from **here** instead, which is what makes checking them worth anything:
+
+| 0.9.0 artifact | SHA-256 |
+|---|---|
+| `dynamic-cdi-flow-renderer-0.9.0.jar` | `e619a287dbc3d9ec61839840fd9c60bc722fc33869ccde29dcbc7bd6f0cf70f4` |
+| `cdi-flow-quarkus-0.9.0.jar` | `e77539d009b3b3affa110de6395896d8923d9a10b092226da8e4ba37c2a3a36c` |
+| `cdi-flow-quarkus-deployment-0.9.0.jar` | `306452eec582bbd46a4b8dee07bcf94955b76b67cbcecc86f025edf48b512adc` |
+| `cdi-flow-jaxrs-0.9.0.jar` | `285f43f4bc2d317151e78e7f271d96fb9c6192545d6852a0fd54a600feb6d236` |
+| `cdi-flow-lite-0.9.0.jar` | `26e5d81dbdf694440664f15d7db8d89afbcb577941ce9518b91212ef8bf4097e` |
+
+Against what Maven already resolved:
+
+```bash
+shasum -a 256 ~/.m2/repository/org/os890/cdi/uml/dynamic-cdi-flow-renderer/0.9.0/*.jar
+sha256sum  ~/.m2/repository/org/os890/cdi/uml/dynamic-cdi-flow-renderer/0.9.0/*.jar   # GNU
+```
+
+SHA-256 rather than the published `.sha1` and `.md5`: those two exist because Maven expects them,
+and neither is worth relying on for anything but a transfer error. The sources- and javadoc-jars are
+not listed - nothing executes them, and the table is for what ends up on a class-path.
+
+Building the project yourself is for **working on it** rather than for using it, and gets you
+`1.0.0-SNAPSHOT` from your local repository:
+
+```bash
+git clone https://github.com/os890/dynamic-cdi-flow-renderer.git
+cd dynamic-cdi-flow-renderer
+mvn clean install -DskipTests     # leave -DskipTests off to run the suite as well
+```
 
 ## Build and run
 
